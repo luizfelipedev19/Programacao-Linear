@@ -1,0 +1,30 @@
+node_modules/
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+
+# Arquivos temporários
+tmp/
+temp/
+.cache/
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Configurações locais do editor
+.vscode/
+.idea/
+
+# Cobertura de testes
+coverage/
+
+# Builds
+dist/
+build/
