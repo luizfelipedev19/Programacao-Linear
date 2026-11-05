@@ -1,4 +1,5 @@
 
+import { NOME_MAX, DESCRICAO_MAX, UNIDADE_MAX, NAO_VAZIO } from '../utils/limites.js';
 import * as controller from '../controllers/variaveisController.js';
 
 const parametrosProblema = {
@@ -37,14 +38,18 @@ const corpoVariavel = {
     nome: {
       type: 'string',
       minLength: 1,
+      maxLength: NOME_MAX,
+      pattern: NAO_VAZIO,
       description: 'Nome da variável, como x1 ou x2'
     },
     descricao: {
       type: ['string', 'null'],
+      maxLength: DESCRICAO_MAX,
       description: 'Descrição da variável'
     },
     unidade: {
       type: ['string', 'null'],
+      maxLength: UNIDADE_MAX,
       description: 'Unidade de medida, como kg'
     },
     inteira: {

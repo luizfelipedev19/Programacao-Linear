@@ -1,3 +1,4 @@
+import { NOME_MAX, EMAIL_MAX, SENHA_MAX, NAO_VAZIO } from '../utils/limites.js';
 import * as controller from '../controllers/authController.js';
 
 const usuario = {
@@ -5,7 +6,7 @@ const usuario = {
   properties: {
     id_usuario: { type: 'integer' },
     nome: { type: 'string' },
-    email: { type: 'string', format: 'email' },
+    email: { type: 'string', format: 'email', maxLength: EMAIL_MAX },
     data_criacao: { type: 'string' }
   }
 };
@@ -29,9 +30,9 @@ export default async function authRoutes(app) {
         type: 'object',
         required: ['nome', 'email', 'senha'],
         properties: {
-          nome: { type: 'string', minLength: 2 },
-          email: { type: 'string', format: 'email' },
-          senha: { type: 'string', minLength: 8, format: 'password' }
+          nome: { type: 'string', minLength: 2, maxLength: NOME_MAX, pattern: NAO_VAZIO },
+          email: { type: 'string', format: 'email', maxLength: EMAIL_MAX },
+          senha: { type: 'string', minLength: 8, maxLength: SENHA_MAX, format: 'password' }
         }
       },
       response: { 201: respostaAutenticacao, 400: erro, 409: erro, 500: erro }
@@ -46,8 +47,8 @@ export default async function authRoutes(app) {
         type: 'object',
         required: ['email', 'senha'],
         properties: {
-          email: { type: 'string', format: 'email' },
-          senha: { type: 'string', minLength: 8, format: 'password' }
+          email: { type: 'string', format: 'email', maxLength: EMAIL_MAX },
+          senha: { type: 'string', minLength: 8, maxLength: SENHA_MAX, format: 'password' }
         }
       },
       response: { 200: respostaAutenticacao, 400: erro, 401: erro, 500: erro }

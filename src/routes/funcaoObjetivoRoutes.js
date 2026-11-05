@@ -1,4 +1,5 @@
 
+import { DECIMAL_MAX } from '../utils/limites.js';
 import * as controller from '../controllers/funcaoObjetivoController.js';
 
 const parametrosProblema = {
@@ -36,6 +37,8 @@ const corpoCoeficiente = {
   properties: {
     coeficiente: {
       type: 'number',
+      minimum: -DECIMAL_MAX,
+      maximum: DECIMAL_MAX,
       description: 'Coeficiente da variável na função objetivo',
       examples: [1.5]
     }

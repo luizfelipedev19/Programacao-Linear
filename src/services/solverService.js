@@ -28,6 +28,10 @@ function validarProblema(problema) {
     throw new ErroModelo('O problema precisa ter ao menos uma restrição.');
   }
 
+  if (problema.variaveis.every((variavel) => variavel.coeficiente_objetivo === 0)) {
+    throw new ErroModelo('Defina a função objetivo com ao menos um coeficiente diferente de zero.');
+  }
+
   for (const variavel of problema.variaveis) {
     if (!numeroFinito(variavel.coeficiente_objetivo)) {
       throw new ErroModelo('Há coeficiente inválido na função objetivo.');

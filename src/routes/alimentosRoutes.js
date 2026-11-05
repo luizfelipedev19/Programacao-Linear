@@ -1,4 +1,5 @@
 
+import { NOME_MAX, NAO_VAZIO, DECIMAL_MAX, ENERGIA_MAX } from '../utils/limites.js';
 import * as controller from '../controllers/alimentosControllers.js';
 
 const parametrosId = {
@@ -25,13 +26,13 @@ const corpoAlimento = {
     'custo_kg'
   ],
   properties: {
-    nome: { type: 'string', minLength: 1 },
-    proteina: { type: 'number', minimum: 0 },
-    energia: { type: 'number', minimum: 0 },
-    fosforo: { type: 'number', minimum: 0 },
-    calcio: { type: 'number', minimum: 0 },
-    lisina: { type: 'number', minimum: 0 },
-    custo_kg: { type: 'number', minimum: 0 }
+    nome: { type: 'string', minLength: 1, maxLength: NOME_MAX, pattern: NAO_VAZIO, description: 'Nome do alimento (único no catálogo)', examples: ['Milho'] },
+    proteina: { type: 'number', minimum: 0, maximum: 100, description: 'Proteína (%)', examples: [8.51] },
+    energia: { type: 'number', minimum: 0, maximum: ENERGIA_MAX, description: 'Energia (kcal/kg)', examples: [3493] },
+    fosforo: { type: 'number', minimum: 0, maximum: 100, description: 'Fósforo (%)', examples: [0.27] },
+    calcio: { type: 'number', minimum: 0, maximum: 100, description: 'Cálcio (%)', examples: [0.02] },
+    lisina: { type: 'number', minimum: 0, maximum: 100, description: 'Lisina (%)', examples: [0.23] },
+    custo_kg: { type: 'number', minimum: 0, maximum: DECIMAL_MAX, description: 'Custo (R$/kg)', examples: [1.8] }
   }
 };
 

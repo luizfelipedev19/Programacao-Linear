@@ -3,7 +3,17 @@ import * as repository from '../repositories/alimentosRepository.js';
 
 export const listarAlimentos = repository.listarAlimentos;
 export const buscarAlimento = repository.buscarAlimento;
-export const excluirAlimento = repository.excluirAlimento;
+
+export class AlimentoEmUsoError extends Error {}
+
+// A FK é ON DELETE SET NULL, então o MySQL não bloqueia sozinho (RF04).
+export async function excluirAlimento(id) {
+  if (await repository.alimentoEmUso(id)) {
+    throw new AlimentoEmUsoError('Alimento está sendo utilizado em uma variável de decisão.');
+  }
+
+  return repository.excluirAlimento(id);
+}
 
 function validarAlimento(dados) {
   const campos = [
@@ -30,10 +40,10 @@ function validarAlimento(dados) {
 
 export async function criarAlimento(dados) {
   validarAlimento(dados);
-  return repository.criarAlimento(dados);
+  return repository.criarAlimento({ ...dados, nome: dados.nome.trim() });
 }
 
 export async function atualizarAlimento(id, dados) {
   validarAlimento(dados);
-  return repository.atualizarAlimento(id, dados);
+  return repository.atualizarAlimento(id, { ...dados, nome: dados.nome.trim() });
 }

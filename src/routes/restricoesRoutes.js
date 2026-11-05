@@ -1,4 +1,5 @@
 
+import { NOME_MAX, UNIDADE_MAX, DECIMAL_MAX, NAO_VAZIO } from '../utils/limites.js';
 import * as controller from '../controllers/restricoesController.js';
 
 const parametrosProblema = {
@@ -59,6 +60,8 @@ const corpoRestricao = {
     nome: {
       type: 'string',
       minLength: 1,
+      maxLength: NOME_MAX,
+      pattern: NAO_VAZIO,
       description: 'Nome da restrição'
     },
     sinal: {
@@ -68,10 +71,13 @@ const corpoRestricao = {
     },
     valor: {
       type: 'number',
+      minimum: -DECIMAL_MAX,
+      maximum: DECIMAL_MAX,
       description: 'Valor do lado direito da restrição'
     },
     unidade: {
       type: ['string', 'null'],
+      maxLength: UNIDADE_MAX,
       description: 'Unidade de medida'
     }
   }
@@ -83,6 +89,8 @@ const corpoCoeficiente = {
   properties: {
     coeficiente: {
       type: 'number',
+      minimum: -DECIMAL_MAX,
+      maximum: DECIMAL_MAX,
       description: 'Coeficiente da variável na restrição',
       examples: [8.5]
     }

@@ -1,4 +1,5 @@
 
+import { NOME_MAX, DESCRICAO_MAX, NAO_VAZIO } from '../utils/limites.js';
 import * as controller from '../controllers/problemasControllers.js';
 
 const parametrosId = {
@@ -20,10 +21,13 @@ const corpoProblema = {
     nome: {
       type: 'string',
       minLength: 1,
+      maxLength: NOME_MAX,
+      pattern: NAO_VAZIO,
       description: 'Nome do problema'
     },
     descricao: {
       type: 'string',
+      maxLength: DESCRICAO_MAX,
       description: 'Descrição do problema'
     },
     objetivo: {

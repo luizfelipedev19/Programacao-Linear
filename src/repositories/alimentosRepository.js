@@ -41,6 +41,15 @@ export async function atualizarAlimento(id, dados) {
   return resultado.affectedRows;
 }
 
+export async function alimentoEmUso(id) {
+  const [rows] = await pool.query(
+    'SELECT 1 FROM variavel_decisao WHERE id_alimento = ? LIMIT 1',
+    [id]
+  );
+
+  return rows.length > 0;
+}
+
 export async function excluirAlimento(id) {
   const [resultado] = await pool.query(
     'DELETE FROM alimento WHERE id_alimento = ?',

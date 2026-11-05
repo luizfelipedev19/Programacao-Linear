@@ -1,5 +1,6 @@
 
 import * as service from '../services/alimentosServices.js';
+import { AlimentoEmUsoError } from '../services/alimentosServices.js';
 
 const idValido = (id) => Number.isSafeInteger(Number(id)) && Number(id) > 0;
 
@@ -8,8 +9,8 @@ function tratarErro(error, request, reply) {
     return reply.code(409).send({ erro: 'Alimento já cadastrado.' });
   }
 
-  if (error.code === 'ER_ROW_IS_REFERENCED_2') {
-    return reply.code(409).send({ erro: 'Alimento está sendo utilizado.' });
+  if (error instanceof AlimentoEmUsoError || error.code === 'ER_ROW_IS_REFERENCED_2') {
+    return reply.code(409).send({ erro: 'Alimento está sendo utilizado em uma variável de decisão.' });
   }
 
   if (error.message?.startsWith('Nome do alimento') ||

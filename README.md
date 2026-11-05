@@ -9,9 +9,43 @@ Backend Node.js para cadastro de cenários de formulação e resolução de mode
 - MySQL (`mysql2`)
 - `javascript-lp-solver`
 
-## Configuração
+## Como rodar (Docker, recomendado)
 
-1. Crie o banco executando o script `Projetolinear_BD.sql` fornecido pelo grupo.
+Funciona em qualquer máquina com **Docker Desktop** (ou Docker Engine + Compose) e **Git**. Não precisa instalar Node nem MySQL.
+
+```bash
+git clone https://github.com/luizfelipedev19/Programacao-Linear.git
+cd Programacao-Linear
+cp .env.example .env        # no Windows (PowerShell): Copy-Item .env.example .env
+docker compose up --build
+```
+
+Na primeira execução o Docker baixa as imagens, cria o MySQL, executa `database/init/01-projetolinear_bd.sql`, roda as migrations (`npm run migrate`) e inicia a API. Quando aparecer `Server listening`, acesse:
+
+| O quê | URL |
+| --- | --- |
+| **Swagger (documentação interativa)** | http://localhost:3000/docs |
+| Verificação da API e do banco | http://localhost:3000/health |
+| Especificação OpenAPI (JSON, para Postman) | http://localhost:3000/docs/json |
+
+Para rodar em segundo plano use `docker compose up -d --build` e acompanhe com `docker compose logs -f backend`. Para parar: `docker compose down`.
+
+### Testando no Swagger
+
+1. Em **Autenticação**, execute `POST /auth/cadastro` (nome, e-mail e senha com 8+ caracteres) e depois `POST /auth/login`.
+2. Copie o `token` da resposta, clique em **Authorize** (cadeado no topo) e cole **apenas o token**, sem `Bearer`.
+3. Siga o fluxo da seção [Fluxo de cadastro e execução](#fluxo-de-cadastro-e-execução).
+
+### Problemas comuns
+
+- **Porta 3306 ou 3000 em uso:** altere `MYSQL_PORT` ou `BACKEND_PORT` no `.env`.
+- **Erro `Cannot find package` depois de um `git pull`:** o `package.json` mudou e o container usa um `node_modules` próprio. Reconstrua com `docker compose up -d --build --renew-anon-volumes backend`.
+- **Alterei o SQL do banco e nada mudou:** os scripts de `database/init` só rodam quando o volume do banco é criado. Para recriar o banco do zero (**apaga todos os dados**): `docker compose down -v` e depois `docker compose up --build`.
+- **Mudei o código e a API não atualizou:** em alguns Windows o `--watch` não detecta alterações em volume montado. Use `docker compose restart backend`.
+
+## Configuração manual (sem Docker)
+
+1. Crie o banco executando o script `database/init/01-projetolinear_bd.sql`.
 2. Instale as dependências:
 
 ```bash
