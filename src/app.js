@@ -6,18 +6,22 @@ import swaggerUi from '@fastify/swagger-ui';
 
 import { pool } from './db.js';
 import { carregarProblema } from './services/problemaService.js';
+import autenticacao from './plugins/autenticacao.js';
 
+import authRoutes from './routes/authRoutes.js';
 import alimentosRoutes from './routes/alimentosRoutes.js';
 import problemasRoutes from './routes/problemasRoutes.js';
 import variaveisRoutes from './routes/variaveisRoutes.js';
 import funcaoObjetivoRoutes from './routes/funcaoObjetivoRoutes.js';
 import restricoesRoutes from './routes/restricoesRoutes.js';
 import duplicarProblemaRoutes from './routes/duplicarProblemaRoutes.js';
+import resultadosRoutes from './routes/resultadosRoutes.js';
 
 export async function buildApp() {
   const app = Fastify({ logger: true });
 
   await app.register(cors);
+  await app.register(autenticacao);
 
   // Configurar Swagger ANTES das rotas
   await app.register(swagger, {
@@ -31,7 +35,16 @@ export async function buildApp() {
         {
           url: 'http://localhost:3000'
         }
-      ]
+      ],
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: 'http',
+            scheme: 'bearer',
+            bearerFormat: 'JWT'
+          }
+        }
+      }
     }
   });
 
@@ -44,12 +57,14 @@ export async function buildApp() {
   });
 
   // Registrar as rotas da API
+  await app.register(authRoutes);
   await app.register(alimentosRoutes);
   await app.register(problemasRoutes);
   await app.register(variaveisRoutes);
   await app.register(funcaoObjetivoRoutes);
   await app.register(restricoesRoutes);
   await app.register(duplicarProblemaRoutes);
+  await app.register(resultadosRoutes);
 
   // Verificar conexão com o banco
   app.get('/health', async () => {
@@ -60,6 +75,8 @@ export async function buildApp() {
   // Carregar modelo completo do problema
   
 app.get('/problemas/:id/modelo', {
+  onRequest: [app.autenticar],
+  preHandler: [app.autorizarProblema],
   schema: {
     tags: ['Problemas'],
     summary: 'Carregar modelo completo de programação linear',
@@ -121,7 +138,10 @@ app.get('/problemas/:id/modelo', {
 }, async (request, reply) => {
 
     try {
-      const problema = await carregarProblema(request.params.id);
+      const problema = await carregarProblema(
+        request.params.id,
+        request.user.id_usuario
+      );
 
       if (!problema) {
         return reply.code(404).send({

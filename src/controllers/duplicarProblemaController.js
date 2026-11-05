@@ -15,7 +15,10 @@ export async function duplicar(request, reply) {
     }
 
     // Duplicar o problema no banco de dados
-    const novoProblema = await duplicarProblema(Number(id));
+    const novoProblema = await duplicarProblema(
+      Number(id),
+      request.user.id_usuario
+    );
 
     // Verificar se o problema original existe
     if (!novoProblema) {

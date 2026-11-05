@@ -3,6 +3,9 @@ import { duplicar } from '../controllers/duplicarProblemaController.js';
 
 export default async function duplicarProblemaRoutes(app) {
 
+  app.addHook('onRequest', app.autenticar);
+  app.addHook('preHandler', app.autorizarProblema);
+
   app.post('/problemas/:id/duplicar', {
     schema: {
       tags: ['Duplicação de Cenários'],

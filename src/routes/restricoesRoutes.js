@@ -91,6 +91,9 @@ const corpoCoeficiente = {
 
 export default async function restricoesRoutes(app) {
 
+  app.addHook('onRequest', app.autenticar);
+  app.addHook('preHandler', app.autorizarProblema);
+
   // Listar restrições
   app.get('/problemas/:id/restricoes', {
     schema: {

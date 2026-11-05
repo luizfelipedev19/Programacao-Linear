@@ -61,6 +61,9 @@ const corpoVariavel = {
 
 export default async function variaveisRoutes(app) {
 
+  app.addHook('onRequest', app.autenticar);
+  app.addHook('preHandler', app.autorizarProblema);
+
   // Listar variáveis de um problema
   app.get('/problemas/:id/variaveis', {
     schema: {

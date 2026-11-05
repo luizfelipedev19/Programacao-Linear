@@ -44,6 +44,9 @@ const corpoCoeficiente = {
 
 export default async function funcaoObjetivoRoutes(app) {
 
+  app.addHook('onRequest', app.autenticar);
+  app.addHook('preHandler', app.autorizarProblema);
+
   // Listar coeficientes
   app.get('/problemas/:id/objetivo', {
     schema: {

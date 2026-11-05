@@ -36,6 +36,9 @@ const corpoProblema = {
 
 export default async function problemasRoutes(app) {
 
+  app.addHook('onRequest', app.autenticar);
+  app.addHook('preHandler', app.autorizarProblema);
+
   // Listar problemas
   app.get('/problemas', {
     schema: {

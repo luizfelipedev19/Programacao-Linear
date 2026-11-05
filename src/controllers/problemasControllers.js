@@ -24,7 +24,7 @@ function tratarErro(error, request, reply) {
 // GET /problemas
 export async function listar(request, reply) {
   try {
-    return await service.listarProblemas();
+    return await service.listarProblemas(request.user.id_usuario);
   } catch (error) {
     return tratarErro(error, request, reply);
   }
@@ -37,7 +37,10 @@ export async function buscar(request, reply) {
       return reply.code(400).send({ erro: 'ID inválido.' });
     }
 
-    const problema = await service.buscarProblema(request.params.id);
+    const problema = await service.buscarProblema(
+      request.params.id,
+      request.user.id_usuario
+    );
 
     if (!problema) {
       return reply.code(404).send({ erro: 'Problema não encontrado.' });
@@ -68,7 +71,7 @@ export async function criar(request, reply) {
       nome: nome.trim(),
       descricao,
       objetivo
-    });
+    }, request.user.id_usuario);
 
     return reply.code(201).send({ id_problema: id });
   } catch (error) {
@@ -97,7 +100,8 @@ export async function atualizar(request, reply) {
 
     const alterados = await service.atualizarProblema(
       request.params.id,
-      { nome: nome.trim(), descricao, objetivo }
+      { nome: nome.trim(), descricao, objetivo },
+      request.user.id_usuario
     );
 
     if (!alterados) {
@@ -117,7 +121,10 @@ export async function excluir(request, reply) {
       return reply.code(400).send({ erro: 'ID inválido.' });
     }
 
-    const excluidos = await service.excluirProblema(request.params.id);
+    const excluidos = await service.excluirProblema(
+      request.params.id,
+      request.user.id_usuario
+    );
 
     if (!excluidos) {
       return reply.code(404).send({ erro: 'Problema não encontrado.' });

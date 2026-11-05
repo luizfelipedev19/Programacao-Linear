@@ -4,7 +4,7 @@ import { pool } from '../db.js';
 const numero = (valor) =>
   valor === null || valor === undefined ? null : Number(valor);
 
-export async function carregarProblema(id) {
+export async function carregarProblema(id, idUsuario) {
   const idProblema = Number(id);
 
   if (!Number.isInteger(idProblema) || idProblema <= 0) {
@@ -15,8 +15,8 @@ export async function carregarProblema(id) {
     `SELECT id_problema, nome, descricao, objetivo,
             id_problema_origem, data_criacao
      FROM problema
-     WHERE id_problema = ?`,
-    [idProblema]
+     WHERE id_problema = ? AND id_usuario = ?`,
+    [idProblema, idUsuario]
   );
 
   if (problemas.length === 0) {

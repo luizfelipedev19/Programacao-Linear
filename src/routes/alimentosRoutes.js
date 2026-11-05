@@ -37,6 +37,8 @@ const corpoAlimento = {
 
 export default async function alimentosRoutes(app) {
 
+  app.addHook('onRequest', app.autenticar);
+
   // Listar alimentos
   app.get('/alimentos', {
     schema: {

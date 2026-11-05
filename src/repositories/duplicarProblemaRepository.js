@@ -1,7 +1,7 @@
 
 import { pool } from '../db.js';
 
-export async function duplicarProblema(idProblema) {
+export async function duplicarProblema(idProblema, idUsuario) {
   const conexao = await pool.getConnection();
 
   try {
@@ -11,8 +11,8 @@ export async function duplicarProblema(idProblema) {
     const [problemas] = await conexao.query(
       `SELECT nome, descricao, objetivo
        FROM problema
-       WHERE id_problema = ?`,
-      [idProblema]
+       WHERE id_problema = ? AND id_usuario = ?`,
+      [idProblema, idUsuario]
     );
 
     if (problemas.length === 0) {
@@ -25,13 +25,14 @@ export async function duplicarProblema(idProblema) {
     // Criar cópia do problema
     const [novoProblema] = await conexao.query(
       `INSERT INTO problema
-         (nome, descricao, objetivo, id_problema_origem)
-       VALUES (?, ?, ?, ?)`,
+         (nome, descricao, objetivo, id_problema_origem, id_usuario)
+       VALUES (?, ?, ?, ?, ?)`,
       [
         `${original.nome} (Cópia)`,
         original.descricao,
         original.objetivo,
-        idProblema
+        idProblema,
+        idUsuario
       ]
     );
 
