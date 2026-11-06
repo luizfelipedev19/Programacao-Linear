@@ -125,6 +125,31 @@ Para produção: defina `NODE_ENV=production`, um `JWT_SECRET` forte (`node -e "
 6. Execute em `POST /problemas/:id/executar`.
 7. Consulte o histórico em `GET /problemas/:id/resultados`.
 
+### Cadastro completo em uma única chamada
+
+`POST /problemas/completo` cria o problema inteiro de uma vez (problema, variáveis, função objetivo, restrições com coeficientes e, opcionalmente, os alimentos), em uma só transação: se qualquer parte for inválida, nada é gravado. As variáveis e restrições se relacionam **pelo nome**:
+
+```json
+{
+  "nome": "Mistura simples",
+  "objetivo": "MIN",
+  "alimentos": [
+    { "nome": "Milho", "proteina": 8.51, "energia": 3493, "fosforo": 0.27, "calcio": 0.02, "lisina": 0.23, "custo_kg": 1.8 },
+    { "nome": "Farinha de soja", "proteina": 45.6, "energia": 3378, "fosforo": 0.55, "calcio": 0.36, "lisina": 2.87, "custo_kg": 4.2 }
+  ],
+  "variaveis": [
+    { "nome": "Milho", "alimento": "Milho", "coeficiente_objetivo": 1.8 },
+    { "nome": "Farinha de soja", "alimento": "Farinha de soja", "coeficiente_objetivo": 4.2 }
+  ],
+  "restricoes": [
+    { "nome": "Proteina minima", "sinal": ">=", "valor": 15.5, "coeficientes": { "Milho": 8.51, "Farinha de soja": 45.6 } },
+    { "nome": "Soma das fracoes", "sinal": "=", "valor": 1, "coeficientes": { "Milho": 1, "Farinha de soja": 1 } }
+  ]
+}
+```
+
+Em `coeficientes`, a variável que não aparece vale 0. O campo `alimentos` é opcional; um alimento seu com o mesmo nome é reaproveitado sem alteração. No Swagger, essa rota já vem preenchida com o problema da ração. Em seguida, execute com `POST /problemas/{id}/executar`.
+
 ## Solver e resultados
 
 `POST /problemas/:id/executar` obtém o modelo por meio de `carregarProblema(id)` e o transforma para o formato aceito pelo jsLPSolver:

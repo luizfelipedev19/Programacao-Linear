@@ -14,6 +14,7 @@ import autenticacao from './plugins/autenticacao.js';
 
 import authRoutes from './routes/authRoutes.js';
 import alimentosRoutes from './routes/alimentosRoutes.js';
+import problemaCompletoRoutes from './routes/problemaCompletoRoutes.js';
 import problemasRoutes from './routes/problemasRoutes.js';
 import variaveisRoutes from './routes/variaveisRoutes.js';
 import funcaoObjetivoRoutes from './routes/funcaoObjetivoRoutes.js';
@@ -60,7 +61,7 @@ function mensagemValidacao(error) {
   const { keyword, params, instancePath } = detalhe;
   const campo = keyword === 'required'
     ? params.missingProperty
-    : instancePath.split('/').filter(Boolean).join('.') || 'corpo da requisição';
+    : instancePath.split('/').filter(Boolean).map((parte) => (/^\d+$/.test(parte) ? `[${parte}]` : `.${parte}`)).join('').replace(/^\./, '') || 'corpo da requisição';
   const nome = `${error.validationContext === 'params' ? 'parâmetro' : 'campo'} '${campo}'`;
 
   switch (keyword) {
@@ -69,6 +70,9 @@ function mensagemValidacao(error) {
     case 'minimum': return `O ${nome} deve ser maior ou igual a ${params.limit}.`;
     case 'maximum': return `O ${nome} deve ser menor ou igual a ${params.limit}.`;
     case 'minLength': return `O ${nome} deve ter no mínimo ${params.limit} caractere(s).`;
+    case 'minItems': return `O ${nome} deve ter pelo menos ${params.limit} item(ns).`;
+    case 'maxItems': return `O ${nome} pode ter no máximo ${params.limit} itens.`;
+    case 'minProperties': return `O ${nome} deve ter pelo menos ${params.limit} item(ns).`;
     case 'maxLength': return `O ${nome} deve ter no máximo ${params.limit} caracteres.`;
     case 'pattern': return `O ${nome} não pode ficar em branco.`;
     case 'enum': return `O ${nome} deve ser um destes valores: ${params.allowedValues.join(', ')}.`;
@@ -197,6 +201,7 @@ export async function buildApp() {
   // Registrar as rotas da API
   await app.register(authRoutes);
   await app.register(alimentosRoutes);
+  await app.register(problemaCompletoRoutes);
   await app.register(problemasRoutes);
   await app.register(variaveisRoutes);
   await app.register(funcaoObjetivoRoutes);

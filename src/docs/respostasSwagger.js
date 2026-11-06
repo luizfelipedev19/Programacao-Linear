@@ -114,6 +114,19 @@ export const respostasSucesso = {
   'DELETE /alimentos/:id': { 200: ok('Alimento excluído.', mensagem('Alimento excluído com sucesso.')) },
 
   'GET /problemas': { 200: ok('Problemas do usuário autenticado.', lista(problema)) },
+  'POST /problemas/completo': {
+    201: ok('Problema criado com tudo o que foi enviado.', {
+      type: 'object',
+      properties: {
+        mensagem: { type: 'string', example: 'Problema criado com sucesso.' },
+        id_problema: { type: 'integer', example: 1, description: 'Use em POST /problemas/{id}/executar' },
+        alimentos: { type: 'integer', example: 10, description: 'Alimentos cadastrados ou reaproveitados' },
+        variaveis: { type: 'integer', example: 10 },
+        restricoes: { type: 'integer', example: 16 },
+        coeficientes_restricoes: { type: 'integer', example: 67 }
+      }
+    })
+  },
   'GET /problemas/:id': { 200: ok('Problema encontrado.', problema) },
   'POST /problemas': { 201: ok('Problema criado.', criado('id_problema')) },
   'PUT /problemas/:id': { 200: ok('Problema atualizado.', mensagem('Problema atualizado com sucesso.')) },

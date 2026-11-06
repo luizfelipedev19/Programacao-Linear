@@ -14,7 +14,7 @@ const parametrosId = {
   }
 };
 
-const corpoAlimento = {
+export const corpoAlimento = {
   type: 'object',
   additionalProperties: false,
   required: [
