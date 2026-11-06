@@ -24,7 +24,7 @@ function tratarErro(error, request, reply) {
 
 export async function listar(request, reply) {
   try {
-    return await service.listarAlimentos();
+    return await service.listarAlimentos(request.user.id_usuario);
   } catch (error) {
     return tratarErro(error, request, reply);
   }
@@ -36,7 +36,10 @@ export async function buscar(request, reply) {
       return reply.code(400).send({ erro: 'ID inválido.' });
     }
 
-    const alimento = await service.buscarAlimento(request.params.id);
+    const alimento = await service.buscarAlimento(
+      request.params.id,
+      request.user.id_usuario
+    );
 
     if (!alimento) {
       return reply.code(404).send({ erro: 'Alimento não encontrado.' });
@@ -50,7 +53,7 @@ export async function buscar(request, reply) {
 
 export async function criar(request, reply) {
   try {
-    const id = await service.criarAlimento(request.body);
+    const id = await service.criarAlimento(request.body, request.user.id_usuario);
     return reply.code(201).send({ id_alimento: id });
   } catch (error) {
     return tratarErro(error, request, reply);
@@ -65,7 +68,8 @@ export async function atualizar(request, reply) {
 
     const alterados = await service.atualizarAlimento(
       request.params.id,
-      request.body
+      request.body,
+      request.user.id_usuario
     );
 
     if (!alterados) {
@@ -84,7 +88,10 @@ export async function excluir(request, reply) {
       return reply.code(400).send({ erro: 'ID inválido.' });
     }
 
-    const excluidos = await service.excluirAlimento(request.params.id);
+    const excluidos = await service.excluirAlimento(
+      request.params.id,
+      request.user.id_usuario
+    );
 
     if (!excluidos) {
       return reply.code(404).send({ erro: 'Alimento não encontrado.' });

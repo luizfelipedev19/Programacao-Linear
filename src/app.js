@@ -1,9 +1,12 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
+import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 
+import { config } from './config.js';
 import { pool } from './db.js';
 import { respostasSucesso } from './docs/respostasSwagger.js';
 import { carregarProblema } from './services/problemaService.js';
@@ -41,6 +44,7 @@ function documentarRota({ schema, url, route }) {
   if (schema.params) adicionar(404, 'Recurso não encontrado.');
   if (schema.body && !publica) adicionar(409, 'Conflito com um registro já existente.');
   if (url === '/auth/cadastro') adicionar(409, 'E-mail já cadastrado.');
+  adicionar(429, 'Limite de requisições excedido. Aguarde e tente novamente.');
   adicionar(500, 'Erro interno do servidor.');
 
   return {
@@ -74,7 +78,16 @@ function mensagemValidacao(error) {
 }
 
 export async function buildApp() {
-  const app = Fastify({ logger: true });
+  const app = Fastify({
+    logger: { redact: ['req.headers.authorization', 'req.headers.cookie'] },
+    trustProxy: config.trustProxy,
+    // Limites contra requisições abusivas (DoS): corpo pequeno, timeouts e parâmetros curtos.
+    bodyLimit: 100 * 1024,
+    connectionTimeout: 30_000,
+    requestTimeout: 30_000,
+    keepAliveTimeout: 5_000,
+    routerOptions: { maxParamLength: 50 }
+  });
 
   // Content-Type JSON sem corpo (ex.: POST /executar via Axios/fetch) faria o Fastify responder 400.
   app.addHook('onRequest', async (request) => {
@@ -94,57 +107,92 @@ export async function buildApp() {
       return reply.code(status).send({ erro: 'Erro interno do servidor.' });
     }
 
+    if (status === 413) {
+      return reply.code(413).send({ erro: 'Corpo da requisição grande demais.' });
+    }
+
+    if (status === 415) {
+      return reply.code(415).send({ erro: 'Tipo de conteúdo não suportado. Use application/json.' });
+    }
+
     return reply.code(status).send({ erro: mensagemValidacao(error) });
   });
 
-  await app.register(cors);
+  app.setNotFoundHandler((request, reply) =>
+    reply.code(404).send({ erro: 'Rota não encontrada.' })
+  );
+
+  await app.register(helmet, {
+    // API JSON: a CSP não se aplica (o Swagger UI traz a sua própria).
+    contentSecurityPolicy: false
+  });
+
+  await app.register(cors, {
+    origin: config.corsOrigins,
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    maxAge: 600
+  });
+
+  await app.register(rateLimit, {
+    global: true,
+    max: config.limites.global,
+    timeWindow: '1 minute',
+    errorResponseBuilder: (request, contexto) =>
+      Object.assign(
+        new Error(`Muitas requisições. Tente novamente em ${Math.ceil(contexto.ttl / 1000)} segundos.`),
+        { statusCode: 429 }
+      )
+  });
   await app.register(autenticacao);
 
-  // Configurar Swagger ANTES das rotas
-  await app.register(swagger, {
-    openapi: {
-      info: {
-        title: 'API de Programação Linear',
-        description: 'API para cadastro e gerenciamento de problemas de programação linear, alimentos, variáveis, função objetivo e restrições.',
-        version: '1.0.0'
-      },
-      servers: [
-        {
-          url: 'http://localhost:3000'
-        }
-      ],
-      tags: [
-        { name: 'Sistema', description: 'Verificação de funcionamento da API e da conexão com o banco.' },
-        { name: 'Autenticação', description: 'Cadastro e login de usuários. O login retorna o JWT usado em todas as demais rotas (botão Authorize).' },
-        { name: 'Alimentos', description: 'Catálogo compartilhado de alimentos, com nutrientes e custo por kg.' },
-        { name: 'Problemas', description: 'Cadastro dos problemas (cenários) de otimização, com objetivo MIN ou MAX. Cada problema pertence ao usuário autenticado.' },
-        { name: 'Variáveis de Decisão', description: 'Variáveis de um problema; podem estar ligadas a um alimento e ser inteiras.' },
-        { name: 'Função Objetivo', description: 'Coeficiente de cada variável na função objetivo do problema.' },
-        { name: 'Restrições', description: 'Restrições do problema (<=, >=, =), valor limite e coeficiente de cada variável em cada restrição.' },
-        { name: 'Duplicação de Cenários', description: 'Cria um novo cenário a partir de um problema existente, para testar variações dos valores.' },
-        { name: 'Solver e Resultados', description: 'Consulta do modelo completo, execução do jsLPSolver e histórico de resultados.' }
-      ],
-      components: {
-        securitySchemes: {
-          bearerAuth: {
-            type: 'http',
-            scheme: 'bearer',
-            bearerFormat: 'JWT'
+  // Configurar Swagger ANTES das rotas (desligado em produção, ver config.swaggerAtivo)
+  if (config.swaggerAtivo) {
+    await app.register(swagger, {
+      openapi: {
+        info: {
+          title: 'API de Programação Linear',
+          description: 'API para cadastro e gerenciamento de problemas de programação linear, alimentos, variáveis, função objetivo e restrições.',
+          version: '1.0.0'
+        },
+        servers: [
+          {
+            url: 'http://localhost:3000'
+          }
+        ],
+        tags: [
+          { name: 'Sistema', description: 'Verificação de funcionamento da API e da conexão com o banco.' },
+          { name: 'Autenticação', description: 'Cadastro e login de usuários. O login retorna o JWT usado em todas as demais rotas (botão Authorize).' },
+          { name: 'Alimentos', description: 'Alimentos do usuário autenticado, com nutrientes e custo por kg. Cada usuário só vê e altera os seus.' },
+          { name: 'Problemas', description: 'Cadastro dos problemas (cenários) de otimização, com objetivo MIN ou MAX. Cada problema pertence ao usuário autenticado.' },
+          { name: 'Variáveis de Decisão', description: 'Variáveis de um problema; podem estar ligadas a um alimento e ser inteiras.' },
+          { name: 'Função Objetivo', description: 'Coeficiente de cada variável na função objetivo do problema.' },
+          { name: 'Restrições', description: 'Restrições do problema (<=, >=, =), valor limite e coeficiente de cada variável em cada restrição.' },
+          { name: 'Duplicação de Cenários', description: 'Cria um novo cenário a partir de um problema existente, para testar variações dos valores.' },
+          { name: 'Solver e Resultados', description: 'Consulta do modelo completo, execução do jsLPSolver e histórico de resultados.' }
+        ],
+        components: {
+          securitySchemes: {
+            bearerAuth: {
+              type: 'http',
+              scheme: 'bearer',
+              bearerFormat: 'JWT'
+            }
           }
         }
-      }
-    },
-    transform: documentarRota
-  });
+      },
+      transform: documentarRota
+    });
 
-  await app.register(swaggerUi, {
-    routePrefix: '/docs',
-    uiConfig: {
-      docExpansion: 'list',
-      deepLinking: true,
-      persistAuthorization: true
-    }
-  });
+    await app.register(swaggerUi, {
+      routePrefix: '/docs',
+      uiConfig: {
+        docExpansion: 'list',
+        deepLinking: true,
+        persistAuthorization: true
+      }
+    });
+  }
 
   // Registrar as rotas da API
   await app.register(authRoutes);

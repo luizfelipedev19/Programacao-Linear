@@ -1,5 +1,6 @@
 
 import * as repository from '../repositories/variaveisRepository.js';
+import { buscarAlimento } from '../repositories/alimentosRepository.js';
 
 const idValido = (id) =>
   Number.isSafeInteger(Number(id)) && Number(id) > 0;
@@ -24,6 +25,12 @@ function validarDados(dados) {
   }
 
   return null;
+}
+
+// IDOR: a variável só pode apontar para alimento do próprio usuário.
+async function alimentoPermitido({ id_alimento }, idUsuario) {
+  if (id_alimento == null) return true;
+  return Boolean(await buscarAlimento(id_alimento, idUsuario));
 }
 
 function tratarErro(error, request, reply) {
@@ -107,6 +114,10 @@ export async function criar(request, reply) {
       return reply.code(400).send({ erro });
     }
 
+    if (!await alimentoPermitido(request.body, request.user.id_usuario)) {
+      return reply.code(400).send({ erro: 'O alimento informado não existe.' });
+    }
+
     const idVariavel = await repository.criarVariavel(id, {
       ...request.body,
       nome: request.body.nome.trim()
@@ -132,6 +143,10 @@ export async function atualizar(request, reply) {
     const erro = validarDados(request.body);
     if (erro) {
       return reply.code(400).send({ erro });
+    }
+
+    if (!await alimentoPermitido(request.body, request.user.id_usuario)) {
+      return reply.code(400).send({ erro: 'O alimento informado não existe.' });
     }
 
     const alterados = await repository.atualizarVariavel(

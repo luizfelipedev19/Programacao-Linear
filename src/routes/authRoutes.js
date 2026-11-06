@@ -1,4 +1,5 @@
 import { NOME_MAX, EMAIL_MAX, SENHA_MAX, NAO_VAZIO } from '../utils/limites.js';
+import { config } from '../config.js';
 import * as controller from '../controllers/authController.js';
 
 const usuario = {
@@ -23,12 +24,15 @@ const erro = { type: 'object', properties: { erro: { type: 'string' } } };
 
 export default async function authRoutes(app) {
   app.post('/auth/cadastro', {
+    // Limite próprio: cadastro em massa e enumeração de e-mails.
+    config: { rateLimit: { max: config.limites.cadastro, timeWindow: '1 hour' } },
     schema: {
       tags: ['Autenticação'],
       summary: 'Cadastrar usuário',
       body: {
         type: 'object',
         required: ['nome', 'email', 'senha'],
+        additionalProperties: false,
         properties: {
           nome: { type: 'string', minLength: 2, maxLength: NOME_MAX, pattern: NAO_VAZIO },
           email: { type: 'string', format: 'email', maxLength: EMAIL_MAX },
@@ -40,12 +44,15 @@ export default async function authRoutes(app) {
   }, controller.cadastrar);
 
   app.post('/auth/login', {
+    // Limite próprio: freia tentativa de senha por força bruta.
+    config: { rateLimit: { max: config.limites.login, timeWindow: '1 minute' } },
     schema: {
       tags: ['Autenticação'],
       summary: 'Autenticar usuário e emitir JWT',
       body: {
         type: 'object',
         required: ['email', 'senha'],
+        additionalProperties: false,
         properties: {
           email: { type: 'string', format: 'email', maxLength: EMAIL_MAX },
           senha: { type: 'string', minLength: 8, maxLength: SENHA_MAX, format: 'password' }

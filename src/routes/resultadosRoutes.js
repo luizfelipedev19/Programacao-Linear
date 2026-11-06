@@ -1,3 +1,4 @@
+import { config } from '../config.js';
 import * as controller from '../controllers/resultadosController.js';
 
 const parametrosProblema = {
@@ -19,8 +20,33 @@ const respostaResultado = {
       enum: ['PENDENTE', 'OTIMO', 'INVIAVEL', 'ILIMITADO', 'ERRO']
     },
     data_calculo: { type: 'string' },
-    variaveis: { type: 'array', items: { type: 'object' } },
-    restricoes: { type: 'array', items: { type: 'object' } }
+    // Sem `properties`, o serializador do Fastify descarta os campos e devolve `{}` em cada item.
+    variaveis: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id_variavel: { type: 'integer' },
+          nome: { type: 'string' },
+          valor: { type: 'number', description: 'Quantidade calculada pelo solver' }
+        }
+      }
+    },
+    restricoes: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id_restricao: { type: 'integer' },
+          nome: { type: 'string' },
+          sinal: { type: 'string', enum: ['<=', '>=', '='] },
+          valor_restricao: { type: 'number', description: 'Limite definido na restrição' },
+          valor_calculado: { type: 'number', description: 'Valor obtido com a solução' },
+          folga: { type: 'number' },
+          atendida: { type: 'boolean' }
+        }
+      }
+    }
   }
 };
 
@@ -33,6 +59,8 @@ export default async function resultadosRoutes(app) {
   app.addHook('onRequest', app.autenticar);
   app.addHook('preHandler', app.autorizarProblema);
   app.post('/problemas/:id/executar', {
+    // O solver consome CPU e é síncrono: limite próprio contra abuso.
+    config: { rateLimit: { max: config.limites.executar, timeWindow: '1 minute' } },
     schema: {
       tags: ['Solver e Resultados'],
       summary: 'Executar a otimização de um problema',

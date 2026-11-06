@@ -55,6 +55,7 @@ const parametrosCoeficiente = {
 
 const corpoRestricao = {
   type: 'object',
+  additionalProperties: false,
   required: ['nome', 'sinal', 'valor'],
   properties: {
     nome: {
@@ -85,6 +86,7 @@ const corpoRestricao = {
 
 const corpoCoeficiente = {
   type: 'object',
+  additionalProperties: false,
   required: ['coeficiente'],
   properties: {
     coeficiente: {

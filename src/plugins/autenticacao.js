@@ -1,18 +1,25 @@
 import fp from 'fastify-plugin';
 import jwt from '@fastify/jwt';
 
+import { config } from '../config.js';
 import { buscarProblema } from '../repositories/problemasRepository.js';
 
 export default fp(async function autenticacao(app) {
   await app.register(jwt, {
-    secret: process.env.JWT_SECRET ?? 'troque-esta-chave-em-producao'
+    secret: config.jwtSecret,
+    // Fixar o algoritmo impede ataques de troca de algoritmo (alg=none etc.).
+    sign: { algorithm: 'HS256' },
+    verify: { algorithms: ['HS256'] }
   });
 
   app.decorate('autenticar', async function autenticar(request, reply) {
     try {
       await request.jwtVerify();
     } catch {
-      return reply.code(401).send({ erro: 'Token ausente, inválido ou expirado.' });
+      const erro = request.headers.authorization
+        ? "Token inválido ou expirado. No Swagger, clique em Authorize e cole apenas o token, sem 'Bearer' e sem aspas."
+        : 'Token ausente. Envie o cabeçalho Authorization: Bearer <token>.';
+      return reply.code(401).send({ erro });
     }
   });
 

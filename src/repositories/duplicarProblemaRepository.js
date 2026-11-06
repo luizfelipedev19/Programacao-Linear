@@ -28,7 +28,7 @@ export async function duplicarProblema(idProblema, idUsuario) {
          (nome, descricao, objetivo, id_problema_origem, id_usuario)
        VALUES (?, ?, ?, ?, ?)`,
       [
-        `${original.nome} (Cópia)`,
+        `${original.nome.slice(0, 92)} (Cópia)`,
         original.descricao,
         original.objetivo,
         idProblema,
@@ -133,7 +133,7 @@ export async function duplicarProblema(idProblema, idUsuario) {
     return {
       id_problema: novoId,
       id_problema_origem: Number(idProblema),
-      nome: `${original.nome} (Cópia)`
+      nome: `${original.nome.slice(0, 92)} (Cópia)`
     };
   } catch (error) {
     await conexao.rollback();

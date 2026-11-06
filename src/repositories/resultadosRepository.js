@@ -128,7 +128,8 @@ export async function listarResultados(idProblema) {
       `SELECT id_resultado
        FROM resultado
        WHERE id_problema = ?
-       ORDER BY data_calculo DESC, id_resultado DESC`,
+       ORDER BY data_calculo DESC, id_resultado DESC
+       LIMIT 100`,
       [idProblema]
     );
 

@@ -16,6 +16,7 @@ const parametrosId = {
 
 const corpoAlimento = {
   type: 'object',
+  additionalProperties: false,
   required: [
     'nome',
     'proteina',

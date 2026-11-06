@@ -33,6 +33,7 @@ const parametrosCoeficiente = {
 
 const corpoCoeficiente = {
   type: 'object',
+  additionalProperties: false,
   required: ['coeficiente'],
   properties: {
     coeficiente: {

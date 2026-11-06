@@ -33,6 +33,7 @@ const parametrosVariavel = {
 
 const corpoVariavel = {
   type: 'object',
+  additionalProperties: false,
   required: ['nome'],
   properties: {
     nome: {

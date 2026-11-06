@@ -19,7 +19,20 @@ function chaveRestricao(idRestricao) {
   return `r_${idRestricao}`;
 }
 
+// Tetos contra modelos abusivos: o jsLPSolver é síncrono e bloquearia a API para todos.
+const MAX_VARIAVEIS = 200;
+const MAX_RESTRICOES = 500;
+const TIMEOUT_MS = 10_000;
+
 function validarProblema(problema) {
+  if (problema.variaveis.length > MAX_VARIAVEIS) {
+    throw new ErroModelo(`O problema excede o limite de ${MAX_VARIAVEIS} variáveis.`);
+  }
+
+  if (problema.restricoes.length > MAX_RESTRICOES) {
+    throw new ErroModelo(`O problema excede o limite de ${MAX_RESTRICOES} restrições.`);
+  }
+
   if (problema.variaveis.length === 0) {
     throw new ErroModelo('O problema precisa ter ao menos uma variável de decisão.');
   }
@@ -59,7 +72,9 @@ export function montarModelo(problema) {
     opType: problema.objetivo === 'MIN' ? 'min' : 'max',
     constraints: {},
     variables: {},
-    ints: {}
+    ints: {},
+    // Interrompe o branch-and-bound de problemas inteiros que não terminam.
+    options: { timeout: TIMEOUT_MS }
   };
 
   for (const restricao of problema.restricoes) {

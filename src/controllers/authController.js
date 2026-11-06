@@ -5,6 +5,10 @@ import {
   criarUsuario
 } from '../repositories/usuariosRepository.js';
 
+// Hash descartável: compara a senha mesmo quando o e-mail não existe, para o tempo de
+// resposta não revelar quais e-mails têm conta.
+const HASH_FALSO = bcrypt.hashSync('senha-falsa-para-igualar-o-tempo', 12);
+
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function dadosValidos({ nome, email, senha }, exigirNome = true) {
@@ -65,7 +69,7 @@ export async function login(request, reply) {
     }
 
     const usuario = await buscarUsuarioPorEmail(dados.email.trim().toLowerCase());
-    const senhaConfere = usuario && await bcrypt.compare(dados.senha, usuario.senha_hash);
+    const senhaConfere = await bcrypt.compare(dados.senha, usuario?.senha_hash ?? HASH_FALSO) && Boolean(usuario);
 
     if (!senhaConfere) {
       return reply.code(401).send({ erro: 'E-mail ou senha inválidos.' });

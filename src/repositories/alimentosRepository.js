@@ -1,41 +1,51 @@
-
 import { pool } from '../db.js';
 
-export async function listarAlimentos() {
-  const [rows] = await pool.query('SELECT * FROM alimento');
+const COLUNAS = `id_alimento, nome, proteina, energia, fosforo,
+                 calcio, lisina, custo_kg`;
+
+// Toda consulta é filtrada por id_usuario: o alimento só é visível ao seu dono.
+
+export async function listarAlimentos(idUsuario) {
+  const [rows] = await pool.query(
+    `SELECT ${COLUNAS} FROM alimento
+     WHERE id_usuario = ? ORDER BY id_alimento`,
+    [idUsuario]
+  );
   return rows;
 }
 
-export async function buscarAlimento(id) {
+export async function buscarAlimento(id, idUsuario) {
   const [rows] = await pool.query(
-    'SELECT * FROM alimento WHERE id_alimento = ?',
-    [id]
+    `SELECT ${COLUNAS} FROM alimento
+     WHERE id_alimento = ? AND id_usuario = ?`,
+    [id, idUsuario]
   );
+
   return rows[0] ?? null;
 }
 
-export async function criarAlimento(dados) {
+export async function criarAlimento(dados, idUsuario) {
   const { nome, proteina, energia, fosforo, calcio, lisina, custo_kg } = dados;
 
   const [resultado] = await pool.query(
     `INSERT INTO alimento
-     (nome, proteina, energia, fosforo, calcio, lisina, custo_kg)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [nome, proteina, energia, fosforo, calcio, lisina, custo_kg]
+     (nome, proteina, energia, fosforo, calcio, lisina, custo_kg, id_usuario)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [nome, proteina, energia, fosforo, calcio, lisina, custo_kg, idUsuario]
   );
 
   return resultado.insertId;
 }
 
-export async function atualizarAlimento(id, dados) {
+export async function atualizarAlimento(id, dados, idUsuario) {
   const { nome, proteina, energia, fosforo, calcio, lisina, custo_kg } = dados;
 
   const [resultado] = await pool.query(
     `UPDATE alimento
      SET nome = ?, proteina = ?, energia = ?, fosforo = ?,
          calcio = ?, lisina = ?, custo_kg = ?
-     WHERE id_alimento = ?`,
-    [nome, proteina, energia, fosforo, calcio, lisina, custo_kg, id]
+     WHERE id_alimento = ? AND id_usuario = ?`,
+    [nome, proteina, energia, fosforo, calcio, lisina, custo_kg, id, idUsuario]
   );
 
   return resultado.affectedRows;
@@ -50,10 +60,10 @@ export async function alimentoEmUso(id) {
   return rows.length > 0;
 }
 
-export async function excluirAlimento(id) {
+export async function excluirAlimento(id, idUsuario) {
   const [resultado] = await pool.query(
-    'DELETE FROM alimento WHERE id_alimento = ?',
-    [id]
+    'DELETE FROM alimento WHERE id_alimento = ? AND id_usuario = ?',
+    [id, idUsuario]
   );
 
   return resultado.affectedRows;

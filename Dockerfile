@@ -9,4 +9,7 @@ COPY . .
 
 EXPOSE 3000
 
+# Não executa a aplicação como root dentro do contêiner.
+USER node
+
 CMD ["npm", "start"]

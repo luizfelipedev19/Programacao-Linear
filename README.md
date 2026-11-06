@@ -17,6 +17,7 @@ Funciona em qualquer máquina com **Docker Desktop** (ou Docker Engine + Compose
 git clone https://github.com/luizfelipedev19/Programacao-Linear.git
 cd Programacao-Linear
 cp .env.example .env        # no Windows (PowerShell): Copy-Item .env.example .env
+# Edite o .env e troque o JWT_SECRET (mínimo de 32 caracteres); sem ele a API não inicia.
 docker compose up --build
 ```
 
@@ -92,9 +93,27 @@ Authorization: Bearer <token>
 | `POST /auth/login` | Autentica e retorna um JWT válido por 8 horas. |
 | `GET /auth/perfil` | Retorna os dados do usuário autenticado. |
 
-As senhas nunca são armazenadas em texto puro: a API salva somente `senha_hash` gerado com `bcryptjs`. Cada problema criado recebe o `id_usuario` do token, e todas as operações sobre problema, variáveis, objetivo, restrições, duplicação, execução e resultados confirmam que ele pertence ao usuário autenticado. Alimentos formam um catálogo compartilhado e também exigem autenticação.
+As senhas nunca são armazenadas em texto puro: a API salva somente `senha_hash` gerado com `bcryptjs`. Cada problema criado recebe o `id_usuario` do token, e todas as operações sobre problema, variáveis, objetivo, restrições, duplicação, execução e resultados confirmam que ele pertence ao usuário autenticado. Os alimentos também pertencem ao usuário que os cadastrou: cada usuário só lista, altera, exclui e usa nas variáveis os seus próprios alimentos (acessar o de outro retorna 404).
 
 > Para uma instalação que já possua problemas antigos, a migration mantém `problema.id_usuario` inicialmente nulo. Esses registros não ficam acessíveis pela API autenticada até serem associados manualmente a um usuário no banco.
+
+## Segurança
+
+| Controle | Como funciona |
+| --- | --- |
+| Segredo do JWT | `JWT_SECRET` é obrigatório (mínimo de 32 caracteres); a API não inicia sem ele. Em `NODE_ENV=production` o valor de exemplo também é recusado. O algoritmo é fixado em HS256. |
+| Senhas | Hash bcrypt (custo 12); tamanho de 8 a 72 caracteres. O login leva o mesmo tempo para e-mail inexistente e senha errada. |
+| Rate limit | Por IP: 300 requisições/min no geral, 10 tentativas de login/min, 10 cadastros/hora e 30 execuções do solver/min. Excedeu: `429`. Ajustável por variáveis `RATE_LIMIT_*`. |
+| IDOR | Problemas e alimentos pertencem a um usuário; toda consulta filtra por `id_usuario`. Recurso de outro usuário responde `404`. A variável só pode usar alimento do próprio usuário. |
+| CORS | Só as origens de `CORS_ORIGIN` (padrão `http://localhost:5173`, o Vite). Separe várias origens por vírgula. |
+| Cabeçalhos | `@fastify/helmet` (nosniff, frame-options, HSTS etc.). |
+| Contra abuso/DoS | Corpo máximo de 100 KB, timeouts de 30 s, solver limitado a 200 variáveis, 500 restrições e 10 s, histórico limitado a 100 resultados. |
+| Mass assignment | Os schemas descartam campos não previstos (ex.: `id_usuario` enviado no corpo é ignorado). |
+| Logs e erros | O cabeçalho `Authorization` é omitido dos logs; erros 500 não expõem detalhes. |
+| Docker | O contêiner roda como usuário `node` (não root) e as portas 3000 e 3306 só abrem em `127.0.0.1`. |
+| Swagger | Desligado com `NODE_ENV=production` (a menos que `SWAGGER_ENABLED=true`). |
+
+Para produção: defina `NODE_ENV=production`, um `JWT_SECRET` forte (`node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`), `CORS_ORIGIN` com o endereço real do front-end, use HTTPS atrás de um proxy reverso e só então `TRUST_PROXY=true`.
 
 ## Fluxo de cadastro e execução
 

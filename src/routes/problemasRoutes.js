@@ -16,6 +16,7 @@ const parametrosId = {
 
 const corpoProblema = {
   type: 'object',
+  additionalProperties: false,
   required: ['nome', 'objetivo'],
   properties: {
     nome: {
