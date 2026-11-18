@@ -28,7 +28,8 @@ const respostaResultado = {
         properties: {
           id_variavel: { type: 'integer' },
           nome: { type: 'string' },
-          valor: { type: 'number', description: 'Quantidade calculada pelo solver' }
+          valor: { type: 'number', description: 'Quantidade calculada pelo solver' },
+          custo_unitario: { type: ['number', 'null'], description: 'Coeficiente da variável na função objetivo (na ração, o custo por kg)' }
         }
       }
     },

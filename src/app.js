@@ -14,6 +14,7 @@ import autenticacao from './plugins/autenticacao.js';
 
 import authRoutes from './routes/authRoutes.js';
 import alimentosRoutes from './routes/alimentosRoutes.js';
+import exigenciasRoutes from './routes/exigenciasRoutes.js';
 import problemaCompletoRoutes from './routes/problemaCompletoRoutes.js';
 import problemasRoutes from './routes/problemasRoutes.js';
 import variaveisRoutes from './routes/variaveisRoutes.js';
@@ -167,6 +168,7 @@ export async function buildApp() {
         tags: [
           { name: 'Sistema', description: 'Verificação de funcionamento da API e da conexão com o banco.' },
           { name: 'Autenticação', description: 'Cadastro e login de usuários. O login retorna o JWT usado em todas as demais rotas (botão Authorize).' },
+          { name: 'Restrições cadastradas', description: 'Restrições nutricionais (mínimo e máximo de cada nutriente) que o usuário cadastra uma vez e reutiliza nas formulações.' },
           { name: 'Alimentos', description: 'Alimentos do usuário autenticado, com nutrientes e custo por kg. Cada usuário só vê e altera os seus.' },
           { name: 'Problemas', description: 'Cadastro dos problemas (cenários) de otimização, com objetivo MIN ou MAX. Cada problema pertence ao usuário autenticado.' },
           { name: 'Variáveis de Decisão', description: 'Variáveis de um problema; podem estar ligadas a um alimento e ser inteiras.' },
@@ -201,6 +203,7 @@ export async function buildApp() {
   // Registrar as rotas da API
   await app.register(authRoutes);
   await app.register(alimentosRoutes);
+  await app.register(exigenciasRoutes);
   await app.register(problemaCompletoRoutes);
   await app.register(problemasRoutes);
   await app.register(variaveisRoutes);

@@ -26,9 +26,10 @@ async function carregarDetalhes(connection, idResultado) {
   if (resultados.length === 0) return null;
 
   const [variaveis] = await connection.query(
-    `SELECT rv.id_variavel, v.nome, rv.valor
+    `SELECT rv.id_variavel, v.nome, rv.valor, fo.coeficiente AS custo_unitario
      FROM resultado_variavel rv
      INNER JOIN variavel_decisao v ON v.id_variavel = rv.id_variavel
+     LEFT JOIN funcao_objetivo fo ON fo.id_variavel = rv.id_variavel
      WHERE rv.id_resultado = ?
      ORDER BY rv.id_variavel`,
     [idResultado]
@@ -49,7 +50,8 @@ async function carregarDetalhes(connection, idResultado) {
     variaveis.map((item) => ({
       id_variavel: item.id_variavel,
       nome: item.nome,
-      valor: numero(item.valor)
+      valor: numero(item.valor),
+      custo_unitario: numero(item.custo_unitario)
     })),
     restricoes.map((item) => ({
       id_restricao: item.id_restricao,

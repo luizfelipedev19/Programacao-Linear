@@ -1,8 +1,12 @@
 import bcrypt from 'bcryptjs';
 
 import {
+  atualizarSenha,
+  atualizarUsuario,
   buscarUsuarioPorEmail,
-  criarUsuario
+  buscarUsuarioPorId,
+  criarUsuario,
+  excluirUsuarioComDados
 } from '../repositories/usuariosRepository.js';
 
 // Hash descartável: compara a senha mesmo quando o e-mail não existe, para o tempo de
@@ -97,4 +101,68 @@ export async function perfil(request) {
       email: request.user.email
     }
   };
+}
+
+export async function atualizarPerfil(request, reply) {
+  try {
+    const { nome, email } = request.body;
+    const emailNormalizado = email.trim().toLowerCase();
+    const afetadas = await atualizarUsuario(request.user.id_usuario, {
+      nome: nome.trim(),
+      email: emailNormalizado
+    });
+
+    if (!afetadas) {
+      return reply.code(404).send({ erro: 'Usuário não encontrado.' });
+    }
+
+    // nome e e-mail vão dentro do token; emite outro para o perfil não ficar desatualizado
+    const usuario = { id_usuario: request.user.id_usuario, nome: nome.trim(), email: emailNormalizado };
+    const token = await reply.jwtSign(usuario, { expiresIn: '8h' });
+
+    return { usuario, token };
+  } catch (error) {
+    if (error.code === 'ER_DUP_ENTRY') {
+      return reply.code(409).send({ erro: 'Este e-mail já está cadastrado.' });
+    }
+
+    request.log.error(error);
+    return reply.code(500).send({ erro: 'Erro ao atualizar o perfil.' });
+  }
+}
+
+// Confirma a senha atual antes de operações sensíveis (trocar senha, excluir conta).
+async function confirmarSenha(request, reply, senha) {
+  const usuario = await buscarUsuarioPorId(request.user.id_usuario);
+  if (!usuario || !(await bcrypt.compare(senha, usuario.senha_hash))) {
+    reply.code(403).send({ erro: 'Senha atual incorreta.' });
+    return null;
+  }
+
+  return usuario;
+}
+
+export async function alterarSenha(request, reply) {
+  try {
+    const { senhaAtual, novaSenha } = request.body;
+    if (!(await confirmarSenha(request, reply, senhaAtual))) return;
+
+    await atualizarSenha(request.user.id_usuario, await bcrypt.hash(novaSenha, 12));
+    return reply.code(204).send();
+  } catch (error) {
+    request.log.error(error);
+    return reply.code(500).send({ erro: 'Erro ao alterar a senha.' });
+  }
+}
+
+export async function excluirConta(request, reply) {
+  try {
+    if (!(await confirmarSenha(request, reply, request.body.senha))) return;
+
+    await excluirUsuarioComDados(request.user.id_usuario);
+    return reply.code(204).send();
+  } catch (error) {
+    request.log.error(error);
+    return reply.code(500).send({ erro: 'Erro ao excluir a conta.' });
+  }
 }

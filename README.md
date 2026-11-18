@@ -125,6 +125,10 @@ Para produção: defina `NODE_ENV=production`, um `JWT_SECRET` forte (`node -e "
 6. Execute em `POST /problemas/:id/executar`.
 7. Consulte o histórico em `GET /problemas/:id/resultados`.
 
+### Restrições nutricionais cadastradas
+
+`/exigencias` (GET, POST, PUT, DELETE) guarda as restrições (mínimo e/ou máximo de um nutriente) que o usuário reutiliza nas formulações; aparece como **Restrições** no menu do front-end. Cada restrição é de um nutriente padrão (`proteina`, `energia`, `fosforo`, `calcio` ou `lisina`, com os teores vindos do cadastro de alimentos) ou de um nutriente próprio, com `teores` informados por ingrediente. São privadas por usuário (recurso de outro usuário responde `404`), com nome único e limite de 100 por usuário. Criada pela migration `004_create_exigencia.sql`.
+
 ### Cadastro completo em uma única chamada
 
 `POST /problemas/completo` cria o problema inteiro de uma vez (problema, variáveis, função objetivo, restrições com coeficientes e, opcionalmente, os alimentos), em uma só transação: se qualquer parte for inválida, nada é gravado. As variáveis e restrições se relacionam **pelo nome**:

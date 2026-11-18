@@ -106,7 +106,26 @@ const modelo = {
 
 const ok = (description, schema) => ({ description, ...schema });
 
+const exigencia = {
+  type: 'object',
+  properties: {
+    id_exigencia: { type: 'integer', example: 1 },
+    nome: { type: 'string', example: 'Proteína' },
+    unidade: { type: 'string', example: '%' },
+    nutriente: { type: ['string', 'null'], enum: ['proteina', 'energia', 'fosforo', 'calcio', 'lisina', null] },
+    minimo: { type: ['number', 'null'], example: 15.5 },
+    maximo: { type: ['number', 'null'], example: 16 },
+    teores: { type: ['object', 'null'], additionalProperties: { type: 'number' }, description: 'Só em nutriente próprio: teor por ingrediente' }
+  }
+};
+
 export const respostasSucesso = {
+  'GET /exigencias': { 200: ok('Restrições cadastradas pelo usuário.', lista(exigencia)) },
+  'GET /exigencias/:id': { 200: ok('Restrição encontrada.', exigencia) },
+  'POST /exigencias': { 201: ok('Restrição cadastrada.', criado('id_exigencia')) },
+  'PUT /exigencias/:id': { 200: ok('Restrição atualizada.', mensagem('Restrição atualizada com sucesso.')) },
+  'DELETE /exigencias/:id': { 200: ok('Restrição excluída.', mensagem('Restrição excluída com sucesso.')) },
+
   'GET /alimentos': { 200: ok('Lista de alimentos do catálogo.', lista(alimento)) },
   'GET /alimentos/:id': { 200: ok('Alimento encontrado.', alimento) },
   'POST /alimentos': { 201: ok('Alimento criado.', criado('id_alimento')) },
