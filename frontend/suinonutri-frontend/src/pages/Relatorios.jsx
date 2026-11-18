@@ -1,23 +1,30 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Shell } from '../components/Shell'
-import { GraficoCusto } from '../components/GraficoCusto'
+import { Ajuda } from '../components/Ajuda'
 import { useAvisos } from '../components/Avisos'
 import { buscarRelatorio, getUsuario } from '../services/api'
-import { brl, pct } from '../services/formatos'
+import { brl } from '../services/formatos'
 
+// Esta tela só traz ANÁLISES. O resumo e o gráfico do custo ficam no Dashboard,
+// e a lista de todas as rações fica no Histórico de otimizações.
 const periodos = [
   { id: 'tudo', rotulo: 'Todo o período', dias: null },
   { id: '30', rotulo: 'Últimos 30 dias', dias: 30 },
   { id: '90', rotulo: 'Últimos 90 dias', dias: 90 },
 ]
-const traco = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' }
 const num = (v, casas = 1) => v.toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas })
-const diaMes = (ms) => new Date(ms).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+// "73,4 kg" ou, para quantidades pequenas, "100 g" (mais fácil de entender e de pesar)
+const peso = (kg) => (kg < 1 ? `${num(kg * 1000, kg * 1000 < 10 ? 1 : 0)} g` : `${num(kg)} kg`)
+const pesoComSinal = (kg) => (Math.abs(kg) < 1e-6 ? 'igual' : `${kg > 0 ? '+' : '−'}${peso(Math.abs(kg))}`)
+const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`
+const rotuloRacao = (f) => `${f.codigo} · ${f.formula} · ${f.data}`
 
-export function Relatorios({ aoSair, aoNavegar, aoAbrir }) {
+export function Relatorios({ aoSair, aoNavegar }) {
   const avisos = useAvisos()
   const [dados, setDados] = useState(null)
   const [periodo, setPeriodo] = useState('tudo')
+  const [idA, setIdA] = useState('')
+  const [idB, setIdB] = useState('')
 
   useEffect(() => {
     buscarRelatorio().then(setDados).catch((e) => { setDados({ total: 0, itens: [] }); avisos.erro(e.message) })
@@ -25,7 +32,6 @@ export function Relatorios({ aoSair, aoNavegar, aoAbrir }) {
 
   const rotuloPeriodo = periodos.find((p) => p.id === periodo).rotulo
 
-  // formulações dentro do período escolhido
   const itens = useMemo(() => {
     const dias = periodos.find((p) => p.id === periodo).dias
     const limite = dias ? Date.now() - dias * 24 * 3600 * 1000 : 0
@@ -33,162 +39,225 @@ export function Relatorios({ aoSair, aoNavegar, aoAbrir }) {
   }, [dados, periodo])
 
   const r = useMemo(() => {
-    const concluidas = itens.filter((i) => i.status === 'Concluída' && i.custoKg != null)
-    const custos = concluidas.map((i) => i.custoKg)
-    const cron = [...concluidas].sort((a, b) => a.criadoEm - b.criadoEm)
+    // só as rações que deram certo têm receita para analisar
+    const concluidas = itens
+      .filter((i) => i.status === 'Concluída' && i.custoKg != null && i.variaveis.length > 0)
+      .sort((a, b) => b.criadoEm - a.criadoEm)
+    const n = concluidas.length
 
-    // ingredientes: % média na receita e em quantas formulações aparecem
+    // média de cada ingrediente em todas as rações: quanto pesa (kg a cada 100 kg) e quanto custa (% do custo)
     const mapa = new Map()
     for (const f of concluidas) {
       for (const v of f.variaveis) {
         if (v.valor <= 1e-6) continue
-        const m = mapa.get(v.nome) ?? { nome: v.nome, usos: 0, soma: 0 }
+        const m = mapa.get(v.nome) ?? { nome: v.nome, usos: 0, peso: 0, parte: 0, temCusto: false }
         m.usos += 1
-        m.soma += v.valor * 100
+        m.peso += v.valor * 100
+        if (v.custo_unitario != null && f.custoKg > 0) {
+          m.parte += ((v.valor * v.custo_unitario) / f.custoKg) * 100
+          m.temCusto = true
+        }
         mapa.set(v.nome, m)
       }
     }
-    const ingredientes = [...mapa.values()]
-      .map((m) => ({ ...m, media: m.soma / m.usos }))
-      .sort((a, b) => b.media - a.media)
-      .slice(0, 10)
+    const ingredientes = [...mapa.values()].map((m) => ({ ...m, peso: m.peso / n, parte: m.parte / n }))
+    const porPeso = [...ingredientes].sort((a, b) => b.peso - a.peso).slice(0, 10)
+    const porCusto = ingredientes.filter((i) => i.temCusto).sort((a, b) => b.parte - a.parte).slice(0, 10)
 
-    return {
-      concluidas: concluidas.length,
-      semSolucao: itens.filter((i) => i.status === 'Sem solução').length,
-      medio: custos.length ? custos.reduce((a, b) => a + b, 0) / custos.length : null,
-      menor: custos.length ? Math.min(...custos) : null,
-      maior: custos.length ? Math.max(...custos) : null,
-      variacao: cron.length >= 2 ? ((cron[cron.length - 1].custoKg - cron[0].custoKg) / cron[0].custoKg) * 100 : null,
-      pontos: cron.slice(-10).map((i) => ({ rotulo: diaMes(i.criadoEm), valor: i.custoKg })),
-      ingredientes,
+    // restrições que ficaram exatamente no limite (folga 0) em cada ração; as de igualdade são sempre assim, então ficam de fora
+    const limites = new Map()
+    for (const f of concluidas) {
+      for (const c of f.restricoes ?? []) {
+        if (c.sinal === '=') continue
+        if (Math.abs(c.folga) <= 1e-6 * Math.max(1, Math.abs(c.valor_restricao))) {
+          limites.set(c.nome, { nome: c.nome, vezes: (limites.get(c.nome)?.vezes ?? 0) + 1 })
+        }
+      }
     }
+    const noLimite = [...limites.values()].sort((a, b) => b.vezes - a.vezes).slice(0, 8)
+
+    return { concluidas, n, porPeso, porCusto, noLimite }
   }, [itens])
 
-  const receita = (f) => f.variaveis.filter((v) => v.valor > 1e-6).map((v) => `${v.nome} ${num(v.valor * 100)}%`).join(' | ')
+  // comparação: por padrão, a penúltima (ração 1) contra a mais recente (ração 2)
+  const fa = r.concluidas.find((f) => String(f.id) === idA) ?? r.concluidas[1]
+  const fb = r.concluidas.find((f) => String(f.id) === idB) ?? r.concluidas[0]
+  const comparacao = useMemo(() => {
+    if (!fa || !fb) return []
+    const pesoDe = (f, nome) => (f.variaveis.find((v) => v.nome === nome)?.valor ?? 0) * 100
+    const nomes = new Set([...fa.variaveis, ...fb.variaveis].filter((v) => v.valor > 1e-6).map((v) => v.nome))
+    return [...nomes]
+      .map((nome) => ({ nome, a: pesoDe(fa, nome), b: pesoDe(fb, nome) }))
+      .sort((x, y) => Math.max(y.a, y.b) - Math.max(x.a, x.b))
+  }, [fa, fb])
 
   function baixarCsv() {
-    if (itens.length === 0) return avisos.erro('Não há formulações no período para exportar.')
-    const linhas = [['Código', 'Data', 'Fórmula', 'Custo (R$/kg)', 'Status', 'Receita (% da ração)']]
-    for (const i of itens) {
-      linhas.push([i.codigo, i.data, i.formula, i.custoKg != null ? i.custoKg.toFixed(2).replace('.', ',') : '', i.status, receita(i)])
+    if (r.n === 0) return avisos.erro('Não há rações que deram certo neste período para exportar.')
+    const linhas = [['Ingrediente', 'Quantidade média a cada 100 kg (kg)', 'Parte do custo (%)', 'Usado em quantas rações']]
+    for (const i of [...r.porPeso].sort((a, b) => b.peso - a.peso)) {
+      linhas.push([i.nome, num(i.peso, 2), i.temCusto ? num(i.parte, 2) : '', `${i.usos} de ${r.n}`])
     }
     // ";" e BOM para o Excel em português abrir com acentos e colunas certas
     const csv = linhas.map((l) => l.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\r\n')
-    const url = URL.createObjectURL(new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' }))
+    const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }))
     const a = document.createElement('a')
     a.href = url
     a.download = `relatorio-suinonutri-${new Date().toISOString().slice(0, 10)}.csv`
     a.click()
     URL.revokeObjectURL(url)
-    avisos.sucesso('Arquivo CSV gerado. Abra no Excel.')
+    avisos.sucesso('Planilha gerada. Abra no Excel.')
   }
 
-  const vazio = dados && itens.length === 0
-  const variacao = r.variacao
-  const maxMedia = r.ingredientes[0]?.media ?? 1
+  const maxPeso = r.porPeso[0]?.peso ?? 1
+  const maxParte = r.porCusto[0]?.parte ?? 1
+  const semDados = dados && r.n === 0
 
   return (
     <Shell ativo="relatorios" aoNavegar={aoNavegar} aoSair={aoSair}>
-      <div className="dash-cabecalho">
-        <div>
-          <h1>Relatórios</h1>
-          <p className="sub">Resumo das formulações calculadas, com custos e ingredientes mais usados.</p>
-        </div>
-        <div className="cab-acoes-sempre no-print">
-          <select className="texto filtro-periodo" value={periodo} onChange={(e) => setPeriodo(e.target.value)} aria-label="Período">
-            {periodos.map((p) => <option key={p.id} value={p.id}>{p.rotulo}</option>)}
-          </select>
-          <button className="btn-sec" onClick={baixarCsv}>Baixar CSV</button>
-          <button className="btn-topo" onClick={() => window.print()}>Imprimir / PDF</button>
-        </div>
-      </div>
-
-      <div className="so-impressao">
-        <strong>SuínoNutri — Relatório de formulações</strong>
-        <span>{getUsuario()?.nome} • {rotuloPeriodo} • gerado em {new Date().toLocaleDateString('pt-BR')}</span>
-      </div>
-
-      {!dados && <div className="vazio">Carregando…</div>}
-      {vazio && <div className="card-branco"><div className="vazio">Nenhuma formulação neste período. Faça uma Nova Otimização para gerar dados.</div></div>}
-
-      {dados && !vazio && (
-        <>
-          <section className="cards">
-            <div className="kpi">
-              <svg width="44" height="44" viewBox="0 0 24 24" {...traco}><rect x="3" y="13" width="4" height="8" rx="1" /><rect x="10" y="8" width="4" height="13" rx="1" /><rect x="17" y="3" width="4" height="18" rx="1" /></svg>
-              <p className="kpi-titulo">Formulações</p>
-              <p className="kpi-valor">{itens.length}</p>
-              <p className="kpi-nota">{r.concluidas} concluídas • {r.semSolucao} sem solução</p>
-            </div>
-            <div className="kpi">
-              <svg width="44" height="44" viewBox="0 0 24 24" {...traco}><circle cx="12" cy="12" r="9.5" /><path d="M15 9.5c-.5-1-1.600-1.500-3-1.500-1.700 0-3 .8-3 2s1.300 1.700 3 2 3 .8 3 2-1.300 2-3 2c-1.400 0-2.500-.5-3-1.500M12 6v2M12 16v2" /></svg>
-              <p className="kpi-titulo">Custo médio por kg</p>
-              <p className="kpi-valor">{r.medio != null ? brl(r.medio) : '–'}</p>
-              <p className="kpi-nota">{r.menor != null ? `menor ${brl(r.menor)} • maior ${brl(r.maior)}` : 'sem formulações concluídas'}</p>
-            </div>
-            <div className="kpi">
-              <svg width="44" height="44" viewBox="0 0 24 24" {...traco}><path d="M3 17l6-6 4 4 8-8" /><path d="M15 7h6v6" /></svg>
-              <p className="kpi-titulo">Variação do custo</p>
-              <p className="kpi-valor">{variacao != null ? `${variacao > 0 ? '+' : ''}${pct(variacao)}` : '–'}</p>
-              <p className="kpi-nota">{variacao != null ? 'da primeira para a última' : 'precisa de 2 formulações'}</p>
-            </div>
-          </section>
-
-          <div className="dash-baixo">
-            <section className="card-branco">
-              <h2>Custo por formulação (R$/kg)</h2>
-              <p className="sub-grafico">— Formulações concluídas, da mais antiga para a mais recente</p>
-              <GraficoCusto pontos={r.pontos} />
-              {variacao != null && (
-                <p className="nota-grafico">
-                  {variacao < -0.05 ? `Redução de ${pct(Math.abs(variacao))} no custo` : variacao > 0.05 ? `Aumento de ${pct(variacao)} no custo` : 'Custo estável'} no período.
-                </p>
-              )}
-            </section>
-
-            <section className="card-branco">
-              <h2>Ingredientes mais usados</h2>
-              <p className="sub-grafico">— Percentual médio na ração</p>
-              {r.ingredientes.length === 0 && <div className="vazio">Sem receitas concluídas no período.</div>}
-              <div className="barras">
-                {r.ingredientes.map((i) => (
-                  <div key={i.nome} className="barra-linha">
-                    <div className="barra-rotulo"><span>{i.nome}</span><strong>{num(i.media)}%</strong></div>
-                    <div className="barra-trilho"><div className="barra-preenche" style={{ width: `${Math.max(3, (i.media / maxMedia) * 100)}%` }} /></div>
-                    <div className="barra-nota">usado em {i.usos} de {r.concluidas} {r.concluidas === 1 ? 'formulação' : 'formulações'}</div>
-                  </div>
-                ))}
-              </div>
-            </section>
+      <div className="relatorio">
+        <div className="dash-cabecalho" data-guia="rel-topo">
+          <div>
+            <h1>Relatórios</h1>
+            <p className="sub">Análises para entender do que a sua ração é feita e o que mais pesa no custo.</p>
           </div>
+          <div className="cab-acoes-sempre no-print rel-acoes">
+            <label className="rel-periodo">
+              <span>Período</span>
+              <select className="texto filtro-periodo" value={periodo} onChange={(e) => setPeriodo(e.target.value)}>
+                {periodos.map((p) => <option key={p.id} value={p.id}>{p.rotulo}</option>)}
+              </select>
+            </label>
+            <button className="btn-sec" onClick={baixarCsv}>Baixar planilha (Excel)</button>
+            <button className="btn-topo" onClick={() => window.print()}>Imprimir ou salvar em PDF</button>
+          </div>
+        </div>
 
-          <section className="card-branco bloco-tabela">
-            <h2>Formulações do período</h2>
-            <div className="tabela-wrap">
-              <table>
-                <thead>
-                  <tr><th>Data</th><th>Código</th><th style={{ textAlign: 'left' }}>Fórmula</th><th>Custo/kg</th><th>Status</th></tr>
-                </thead>
-                <tbody>
-                  {itens.map((f) => (
-                    <tr key={f.id} className="linha-clicavel" onClick={() => aoAbrir(f.id)} title="Ver resultado">
-                      <td>{f.data}</td>
-                      <td>{f.codigo}</td>
-                      <td style={{ textAlign: 'left' }}>{f.formula}</td>
-                      <td>{f.custoKg != null ? brl(f.custoKg) : '–'}</td>
-                      <td><span className={`status ${f.status === 'Concluída' ? 'concluida' : f.status === 'Em análise' ? 'analise' : 'sem-solucao'}`}>{f.status}</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        <div className="so-impressao">
+          <strong>SuínoNutri — Relatório de análises</strong>
+          <span>{getUsuario()?.nome} • {rotuloPeriodo} • gerado em {new Date().toLocaleDateString('pt-BR')}</span>
+        </div>
+
+        <Ajuda passos={[
+          'Esta tela mostra análises. O resumo e o gráfico do custo ficam no Dashboard, e a lista de todas as rações fica no Histórico de otimizações.',
+          '"Para onde vai o dinheiro" mostra quais ingredientes mais pesam no custo da ração.',
+          '"O que mais vai na ração" mostra quanto de cada ingrediente é usado a cada 100 kg.',
+          '"O que mais encarece a ração" lista as exigências que ficaram no limite: são as que mais seguram o custo.',
+          '"Comparar duas rações" mostra, lado a lado, o que mudou de uma ração para outra.',
+        ]} dica="Para guardar ou mandar para alguém, use os botões do topo: planilha (Excel) ou PDF." />
+
+        {!dados && <div className="vazio">Carregando…</div>}
+        {semDados && (
+          <div className="card-branco">
+            <div className="vazio">
+              <p>Ainda não há rações que deram certo neste período para analisar.</p>
+              <button className="btn-topo" onClick={() => aoNavegar('nova')}><span className="mais">+</span> Fazer minha primeira otimização</button>
             </div>
+          </div>
+        )}
+
+        {dados && !semDados && (
+          <>
+            <p className="rel-resumo">Estas análises usam {plural(r.n, 'ração que deu certo', 'rações que deram certo')} ({rotuloPeriodo.toLowerCase()}).</p>
+
+            <div className="dash-baixo">
+              <section className="card-branco">
+                <h2>Para onde vai o dinheiro</h2>
+                <p className="rel-explica">De cada R$ 100 gastos com a ração, quanto vai para cada ingrediente (em média).</p>
+                {r.porCusto.length === 0 && <div className="vazio">Sem dados de preço para calcular.</div>}
+                <div className="barras">
+                  {r.porCusto.map((i) => (
+                    <div key={i.nome} className="barra-linha">
+                      <div className="barra-rotulo"><span>{i.nome}</span><strong>R$ {num(i.parte)}</strong></div>
+                      <div className="barra-trilho"><div className="barra-preenche barra-custo" style={{ width: `${Math.max(3, (i.parte / maxParte) * 100)}%` }} /></div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="card-branco">
+                <h2>O que mais vai na ração</h2>
+                <p className="rel-explica">Quanto de cada ingrediente é usado, em média, a cada 100 kg de ração.</p>
+                <div className="barras">
+                  {r.porPeso.map((i) => (
+                    <div key={i.nome} className="barra-linha">
+                      <div className="barra-rotulo"><span>{i.nome}</span><strong>{peso(i.peso)}</strong></div>
+                      <div className="barra-trilho"><div className="barra-preenche" style={{ width: `${Math.max(3, (i.peso / maxPeso) * 100)}%` }} /></div>
+                      <div className="barra-nota">Usado em {i.usos} de {plural(r.n, 'ração', 'rações')}</div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </div>
+
+            <section className="card-branco bloco-tabela">
+              <h2>O que mais encarece a ração</h2>
+              <p className="rel-explica">Estas exigências ficaram exatamente no limite. Elas seguram o custo: se você aceitasse um pouco menos (ou um pouco mais, no caso dos máximos), a ração poderia sair mais barata.</p>
+              {r.noLimite.length === 0
+                ? <div className="vazio">Nenhuma exigência ficou no limite.</div>
+                : (
+                  <ul className="lista-limites">
+                    {r.noLimite.map((l) => (
+                      <li key={l.nome}>
+                        <span className="limite-nome">{l.nome}</span>
+                        <span className="limite-vezes">no limite em {l.vezes} de {plural(r.n, 'ração', 'rações')}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+            </section>
+
+            <section className="card-branco bloco-tabela">
+              <h2>Comparar duas rações</h2>
+              {r.n < 2
+                ? <p className="rel-explica">Calcule pelo menos 2 rações que deram certo para poder compará-las.</p>
+                : (
+                  <>
+                    <p className="rel-explica no-print">Escolha duas rações para ver o que mudou de uma para a outra.</p>
+                    <div className="comparar-escolha no-print">
+                      <label className="mini"><span>Ração 1</span>
+                        <select className="texto" value={String(fa.id)} onChange={(e) => setIdA(e.target.value)}>
+                          {r.concluidas.map((f) => <option key={f.id} value={f.id}>{rotuloRacao(f)}</option>)}
+                        </select>
+                      </label>
+                      <label className="mini"><span>Ração 2</span>
+                        <select className="texto" value={String(fb.id)} onChange={(e) => setIdB(e.target.value)}>
+                          {r.concluidas.map((f) => <option key={f.id} value={f.id}>{rotuloRacao(f)}</option>)}
+                        </select>
+                      </label>
+                    </div>
+                    <div className="tabela-wrap">
+                      <table>
+                        <thead>
+                          <tr><th style={{ textAlign: 'left' }}>A cada 100 kg de ração</th><th>Ração 1</th><th>Ração 2</th><th>Diferença</th></tr>
+                        </thead>
+                        <tbody>
+                          <tr className="total">
+                            <td style={{ textAlign: 'left' }}>Custo por kg</td>
+                            <td>{brl(fa.custoKg)}</td>
+                            <td>{brl(fb.custoKg)}</td>
+                            <td>{Math.abs(fb.custoKg - fa.custoKg) < 0.005 ? 'igual' : `${fb.custoKg > fa.custoKg ? '+' : '−'}${brl(Math.abs(fb.custoKg - fa.custoKg))}`}</td>
+                          </tr>
+                          {comparacao.map((c) => (
+                            <tr key={c.nome}>
+                              <td style={{ textAlign: 'left' }}>{c.nome}</td>
+                              <td>{peso(c.a)}</td>
+                              <td>{peso(c.b)}</td>
+                              <td className={Math.abs(c.b - c.a) < 1e-6 ? '' : 'dif-muda'}>{pesoComSinal(c.b - c.a)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+            </section>
+
             {dados.total > dados.itens.length && (
-              <p className="dica" style={{ marginTop: 12 }}>Considerando as {dados.itens.length} formulações mais recentes de {dados.total}.</p>
+              <p className="dica">Considerando as {dados.itens.length} rações mais recentes, de um total de {dados.total}.</p>
             )}
-          </section>
-        </>
-      )}
+          </>
+        )}
+      </div>
     </Shell>
   )
 }

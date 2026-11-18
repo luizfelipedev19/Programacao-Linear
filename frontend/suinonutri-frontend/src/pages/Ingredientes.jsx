@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Shell } from '../components/Shell'
 import { Campo } from '../components/Campo'
+import { Ajuda } from '../components/Ajuda'
 import { useAvisos } from '../components/Avisos'
 import { atualizarAlimento, criarAlimento, excluirAlimento, listarAlimentos } from '../services/api'
 import { alimentosExemplo, lerNumero } from '../services/formulacao'
@@ -65,7 +66,7 @@ export function Ingredientes({ aoSair, aoNavegar }) {
       await carregar()
     } catch (err) {
       avisos.erro(err.status === 409
-        ? `"${a.nome}" já foi usado em uma formulação e não pode ser excluído. Exclua a formulação no Histórico primeiro.`
+        ? `"${a.nome}" já foi usado em uma formulação e não pode ser excluído. Exclua a formulação no Histórico de otimizações primeiro.`
         : err.message)
     }
   }
@@ -91,9 +92,16 @@ export function Ingredientes({ aoSair, aoNavegar }) {
           <p className="sub">Os ingredientes cadastrados aparecem na tela de Nova Otimização.</p>
         </div>
         <div className="cab-acoes-sempre">
-          {!form && <button className="btn-topo" onClick={() => setForm({ ...vazio })}><span className="mais">+</span> Novo ingrediente</button>}
+          {!form && <button className="btn-topo" data-guia="ing-novo" onClick={() => setForm({ ...vazio })}><span className="mais">+</span> Novo ingrediente</button>}
         </div>
       </div>
+
+      <Ajuda passos={[
+        'Aqui ficam os ingredientes que você usa na ração (milho, farelo, sal...).',
+        'Para cadastrar, toque em "Novo ingrediente" e informe o nome, o preço de 1 kg e do que ele é feito (proteína, energia...).',
+        'Se o ingrediente não tem um nutriente, deixe 0 ou em branco.',
+        'Depois de cadastrados, os ingredientes aparecem na tela "Nova Otimização" para você marcar os que quer usar.',
+      ]} dica="Os números de proteína, energia etc. costumam vir na embalagem ou na tabela do fornecedor." />
 
       {form && (
         <form className="card-branco" onSubmit={salvar} noValidate>
@@ -102,12 +110,12 @@ export function Ingredientes({ aoSair, aoNavegar }) {
             <input className="texto" placeholder="Nome (ex.: Milho)" value={form.nome} maxLength={100} onChange={(e) => mudar({ nome: e.target.value })} />
           </div>
           <div className="grade">
-            <Campo rotulo="Preço (R$/kg)" valor={form.custo} aoMudar={(v) => mudar({ custo: v })} />
-            <Campo rotulo="Proteína %" valor={form.proteina} aoMudar={(v) => mudar({ proteina: v })} placeholder="0" />
-            <Campo rotulo="Energia kcal/kg" valor={form.energia} aoMudar={(v) => mudar({ energia: v })} placeholder="0" />
-            <Campo rotulo="Fósforo %" valor={form.fosforo} aoMudar={(v) => mudar({ fosforo: v })} placeholder="0" />
-            <Campo rotulo="Cálcio %" valor={form.calcio} aoMudar={(v) => mudar({ calcio: v })} placeholder="0" />
-            <Campo rotulo="Lisina %" valor={form.lisina} aoMudar={(v) => mudar({ lisina: v })} placeholder="0" />
+            <Campo rotulo="Preço (R$/kg)" valor={form.custo} aoMudar={(v) => mudar({ custo: v })} ajuda="Quanto você paga por 1 kg deste ingrediente, em reais." />
+            <Campo rotulo="Proteína %" valor={form.proteina} aoMudar={(v) => mudar({ proteina: v })} placeholder="0" ajuda="De cada 100 kg do ingrediente, quantos kg são proteína. Ex.: 8,5 no milho." />
+            <Campo rotulo="Energia kcal/kg" valor={form.energia} aoMudar={(v) => mudar({ energia: v })} placeholder="0" ajuda="A energia que 1 kg do ingrediente fornece ao animal, em quilocalorias (kcal). Ex.: 3.493 no milho." />
+            <Campo rotulo="Fósforo %" valor={form.fosforo} aoMudar={(v) => mudar({ fosforo: v })} placeholder="0" ajuda="De cada 100 kg do ingrediente, quantos kg são fósforo, um mineral dos ossos." />
+            <Campo rotulo="Cálcio %" valor={form.calcio} aoMudar={(v) => mudar({ calcio: v })} placeholder="0" ajuda="De cada 100 kg do ingrediente, quantos kg são cálcio, mineral importante para os ossos." />
+            <Campo rotulo="Lisina %" valor={form.lisina} aoMudar={(v) => mudar({ lisina: v })} placeholder="0" ajuda="De cada 100 kg do ingrediente, quantos kg são lisina, um aminoácido essencial para o crescimento." />
           </div>
           <div className="form-botoes">
             <button type="submit" className="btn-topo" disabled={salvando}>{salvando ? 'Salvando…' : 'Salvar'}</button>
@@ -133,7 +141,7 @@ export function Ingredientes({ aoSair, aoNavegar }) {
           <div className="tabela-wrap">
             <table>
               <thead>
-                <tr><th style={{ textAlign: 'left' }}>Ingrediente</th><th>R$/kg</th><th>Proteína %</th><th>Energia</th><th>Fósforo %</th><th>Cálcio %</th><th>Lisina %</th><th></th></tr>
+                <tr><th style={{ textAlign: 'left' }}>Ingrediente</th><th>R$/kg</th><th>Proteína %</th><th>Energia</th><th>Fósforo %</th><th>Cálcio %</th><th>Lisina %</th><th><span className="so-leitor">Ações</span></th></tr>
               </thead>
               <tbody>
                 {filtrada.map((a) => (

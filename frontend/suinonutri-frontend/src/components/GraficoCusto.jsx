@@ -1,11 +1,11 @@
 // Gráfico de linha simples (SVG) com o custo médio por mês.
 // pontos: [{ rotulo: 'Jun', valor: 1.92 | null }, ...]
-const L = 520, A = 250, mEsq = 48, mDir = 16, mTopo = 14, mBase = 34
+const L = 520, A = 290, mEsq = 68, mDir = 24, mTopo = 18, mBase = 48
 
 export function GraficoCusto({ pontos }) {
   const validos = pontos.filter((p) => p.valor !== null)
   if (validos.length < 2) {
-    return <div className="vazio">Calcule pelo menos 2 formulações para ver a evolução do custo.</div>
+    return <div className="vazio">Calcule pelo menos 2 rações que deram certo para ver como o custo mudou.</div>
   }
 
   const vals = validos.map((p) => p.valor)
@@ -29,16 +29,16 @@ export function GraficoCusto({ pontos }) {
       {ticks.map((t) => (
         <g key={t}>
           <line x1={mEsq} x2={L - mDir} y1={y(t)} y2={y(t)} stroke="#e6e9e7" />
-          <text x={mEsq - 8} y={y(t) + 4} textAnchor="end" fontSize="12" fill="#5b6670">{fmt(t)}</text>
+          <text x={mEsq - 8} y={y(t) + 4} textAnchor="end" fontSize="20" fill="#44505a">{fmt(t)}</text>
         </g>
       ))}
       <path d={area} fill="#1f8a3b" opacity=".10" />
       <path d={caminho} fill="none" stroke="#14532d" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
       {linha.map((p, i) => (
-        <circle key={i} cx={p.x} cy={p.y} r="4.5" fill="#fff" stroke="#14532d" strokeWidth="2"><title>R$ {fmt(p.v)}</title></circle>
+        <circle key={i} cx={p.x} cy={p.y} r="8" fill="#fff" stroke="#14532d" strokeWidth="3.5"><title>R$ {fmt(p.v)}</title></circle>
       ))}
       {pontos.map((p, i) => (
-        <text key={p.rotulo + i} x={x(i)} y={A - 10} textAnchor="middle" fontSize="13" fill="#3a444d">{p.rotulo}</text>
+        <text key={p.rotulo + i} x={x(i)} y={A - 12} textAnchor="middle" fontSize="20" fill="#2b343d">{p.rotulo}</text>
       ))}
     </svg>
   )

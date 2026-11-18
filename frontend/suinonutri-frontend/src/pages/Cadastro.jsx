@@ -31,11 +31,13 @@ export function Cadastro({ aoCadastrar, aoVoltar }) {
   }
 
   return (
-    <div className="pagina-login">
+    <main className="pagina-login" id="principal" tabIndex={-1}>
       <div className="app-card login">
         <div className="login-hero"><Hero /></div>
         <form className="login-body" onSubmit={enviar} noValidate>
+          <h1 className="so-leitor">Criar conta no SuínoNutri</h1>
           <Logo />
+          <p className="ajuda-login">Preencha os campos para criar a sua conta. Depois é só entrar com o e-mail e a senha que você escolheu.</p>
           <div className="campo">
             <label htmlFor="nome">Nome</label>
             <div className="campo-input"><input id="nome" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Seu nome" autoComplete="name" /></div>
@@ -59,6 +61,6 @@ export function Cadastro({ aoCadastrar, aoVoltar }) {
           </div>
         </form>
       </div>
-    </div>
+    </main>
   )
 }

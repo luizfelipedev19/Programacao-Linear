@@ -16,11 +16,11 @@ export const ingredientesPadrao = () => [
     ing('Mistura vitamínica', 145, 0, 0, 0, 0, 0, '0.1', '0.1'),
 ];
 export const exigenciasPadrao = () => [
-    { chave: 'proteina', rotulo: 'Proteína', unidade: '%', min: '15.5', max: '16' },
-    { chave: 'energia', rotulo: 'Energia', unidade: 'kcal/kg', min: '3260', max: '3360' },
-    { chave: 'fosforo', rotulo: 'Fósforo', unidade: '%', min: '0.5', max: '0.52' },
-    { chave: 'calcio', rotulo: 'Cálcio', unidade: '%', min: '1.3', max: '1.4' },
-    { chave: 'lisina', rotulo: 'Lisina', unidade: '%', min: '0.69', max: '' },
+    { chave: 'proteina', rotulo: 'Proteína', unidade: '%', min: '15.5', max: '16', usar: true },
+    { chave: 'energia', rotulo: 'Energia', unidade: 'kcal/kg', min: '3260', max: '3360', usar: true },
+    { chave: 'fosforo', rotulo: 'Fósforo', unidade: '%', min: '0.5', max: '0.52', usar: true },
+    { chave: 'calcio', rotulo: 'Cálcio', unidade: '%', min: '1.3', max: '1.4', usar: true },
+    { chave: 'lisina', rotulo: 'Lisina', unidade: '%', min: '0.69', max: '', usar: true },
 ];
 /** Aceita vírgula ou ponto. Vazio => null. Inválido => NaN. */
 export function lerNumero(texto) {
@@ -28,6 +28,19 @@ export function lerNumero(texto) {
     if (t === '')
         return null;
     return /^-?\d*\.?\d+$/.test(t) ? Number(t) : NaN;
+}
+/** Mensagem de erro para um campo numérico ('' se estiver ok). `max` é opcional; vazio é permitido. */
+export function erroNumero(texto, max) {
+    const x = lerNumero(texto);
+    if (x === null)
+        return '';
+    if (Number.isNaN(x))
+        return 'Digite um número.';
+    if (x < 0)
+        return 'Não pode ser negativo.';
+    if (max !== undefined && x > max)
+        return `No máximo ${max}.`;
+    return '';
 }
 const masc = (e) => e.chave === 'fosforo' || e.chave === 'calcio';
 export function montarPayload(nomeFormulacao, ingredientes, exigencias) {
@@ -69,6 +82,9 @@ export function montarPayload(nomeFormulacao, ingredientes, exigencias) {
     const restricoes = [];
     // ---- exigências nutricionais ----
     for (const e of exigencias) {
+        // exigência desligada pelo usuário: não entra no modelo
+        if (e.usar === false)
+            continue;
         const min = lerNumero(e.min);
         const max = lerNumero(e.max);
         if (Number.isNaN(min) || Number.isNaN(max) || (min !== null && min < 0) || (max !== null && max < 0)) {
@@ -79,7 +95,10 @@ export function montarPayload(nomeFormulacao, ingredientes, exigencias) {
         }
         const coeficientes = {};
         for (const i of usados) {
-            const x = valores.get(i.nome)[e.chave];
+            // exigência criada pelo usuário traz o teor de cada ingrediente; as padrão usam o cadastro do ingrediente
+            const x = e.custom ? lerNumero(e.teores?.[i.nome] ?? '') ?? 0 : valores.get(i.nome)[e.chave];
+            if (Number.isNaN(x) || x < 0 || x > 99999)
+                return { ok: false, erro: `Confira o teor de ${e.rotulo.toLowerCase()} em "${i.nome.trim()}".` };
             if (x > 0)
                 coeficientes[i.nome.trim()] = x;
         }
@@ -123,6 +142,14 @@ export function montarPayload(nomeFormulacao, ingredientes, exigencias) {
         nome: 'Soma das frações', sinal: '=', valor: 1, unidade: 'fração',
         coeficientes: Object.fromEntries(usados.map((i) => [i.nome.trim(), 1])),
     });
+    // o backend exige nomes de restrição únicos (ex.: uma exigência "Sal" colidiria com o limite do ingrediente Sal)
+    const nomesRestricoes = new Set();
+    for (const r of restricoes) {
+        const chave = r.nome.toLowerCase();
+        if (nomesRestricoes.has(chave))
+            return { ok: false, erro: `Há duas exigências com o nome "${r.nome}". Renomeie ou remova uma delas.` };
+        nomesRestricoes.add(chave);
+    }
     return {
         ok: true,
         payload: {

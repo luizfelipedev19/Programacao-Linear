@@ -92,7 +92,6 @@ export const criarProblemaCompleto = (payload) => requisicao('/problemas/complet
 });
 export const executarProblema = (id) => requisicao(`/problemas/${id}/executar`, { method: 'POST' });
 const media = (v) => (v.length ? v.reduce((a, b) => a + b, 0) / v.length : null);
-const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 const DIA = 24 * 3600 * 1000;
 async function carregarBase(limite) {
     const problemas = (await listarProblemas()).sort((a, b) => b.id_problema - a.id_problema);
@@ -144,24 +143,22 @@ export async function buscarResumo() {
     const custoMedioKg = media(custosEntre(Date.now() - 30 * DIA, Date.now() + DIA));
     const custoAnterior = media(custosEntre(Date.now() - 60 * DIA, Date.now() - 30 * DIA));
     const variacaoCusto = custoMedioKg !== null && custoAnterior !== null ? custoMedioKg - custoAnterior : null;
-    // evolução do custo: média por mês nos últimos 6 meses
-    const meses = [];
-    for (let i = 5; i >= 0; i--) {
-        const d = new Date(agora.getFullYear(), agora.getMonth() - i, 1);
-        meses.push({ ano: d.getFullYear(), mes: d.getMonth(), rotulo: MESES[d.getMonth()], valores: [] });
-    }
-    for (const b of base) {
-        if (b.custoKg === null) continue;
-        const d = new Date(b.p.data_criacao);
-        meses.find((m) => m.ano === d.getFullYear() && m.mes === d.getMonth())?.valores.push(b.custoKg);
-    }
+    // evolução do custo: uma ração por ponto (as 10 últimas que deram certo), da mais antiga para a mais nova
+    const evolucao = base
+        .filter((b) => b.custoKg !== null)
+        .sort((x, y) => new Date(x.p.data_criacao) - new Date(y.p.data_criacao))
+        .slice(-10)
+        .map((b) => ({
+            rotulo: new Date(b.p.data_criacao).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+            valor: b.custoKg,
+        }));
     return {
         totalFormulacoes: problemas.length,
         novasNoMes,
         economiaMedia: media(historico.map((h) => h.economia).filter((e) => e !== null)),
         custoMedioKg,
         variacaoCusto,
-        evolucao: meses.map((m) => ({ rotulo: m.rotulo, valor: media(m.valores) })),
+        evolucao,
         historico: historico.slice(0, 5),
     };
 }
@@ -183,6 +180,11 @@ export async function listarAlimentos() {
         custo_kg: paraNumero(a.custo_kg),
     }));
 }
+// ---------- restrições nutricionais cadastradas (exigências) ----------
+export const listarExigencias = () => requisicao('/exigencias');
+export const criarExigencia = (dados) => requisicao('/exigencias', { method: 'POST', body: JSON.stringify(dados) });
+export const atualizarExigencia = (id, dados) => requisicao(`/exigencias/${id}`, { method: 'PUT', body: JSON.stringify(dados) });
+export const excluirExigencia = (id) => requisicao(`/exigencias/${id}`, { method: 'DELETE' });
 export const criarAlimento = (dados) => requisicao('/alimentos', { method: 'POST', body: JSON.stringify(dados) });
 export const atualizarAlimento = (id, dados) => requisicao(`/alimentos/${id}`, { method: 'PUT', body: JSON.stringify(dados) });
 export const excluirAlimento = (id) => requisicao(`/alimentos/${id}`, { method: 'DELETE' });
@@ -199,6 +201,24 @@ export async function buscarRelatorio() {
             ...historico[i],
             criadoEm: new Date(b.p.data_criacao).getTime(),
             variaveis: b.status === 'Concluída' ? (b.resultado?.variaveis ?? []) : [],
+            restricoes: b.status === 'Concluída' ? (b.resultado?.restricoes ?? []) : [],
         })),
     };
+}
+
+// ---------- conta do usuário (Configurações) ----------
+export async function atualizarPerfil(nome, email) {
+    const { usuario, token } = await requisicao('/auth/perfil', { method: 'PUT', body: JSON.stringify({ nome: nome.trim(), email: email.trim() }) });
+    guardarSessao(token, usuario);
+    return usuario;
+}
+export const alterarSenha = (senhaAtual, novaSenha) => requisicao('/auth/senha', { method: 'PUT', body: JSON.stringify({ senhaAtual, novaSenha }) });
+export async function excluirConta(senha) {
+    await requisicao('/auth/conta', { method: 'DELETE', body: JSON.stringify({ senha }) });
+    sair();
+}
+// Tudo o que a pessoa cadastrou, para ela baixar uma cópia.
+export async function exportarMeusDados() {
+    const [ingredientes, restricoes, problemas] = await Promise.all([requisicao('/alimentos'), requisicao('/exigencias'), requisicao('/problemas')]);
+    return { exportado_em: new Date().toISOString(), usuario: getUsuario(), ingredientes, restricoes, formulacoes: problemas };
 }

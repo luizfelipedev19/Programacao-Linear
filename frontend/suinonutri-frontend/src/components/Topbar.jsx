@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Logo } from './Logo'
+import { ABRIR_GUIA } from './Guia'
 import { destinos } from './navegacao'
 import { getUsuario } from '../services/api'
 
@@ -29,7 +30,7 @@ export function Topbar({ ativo, aoNavegar, aoSair, extra }) {
   }, [aberto])
 
   return (
-    <header className="topbar">
+    <header className="topbar" data-guia="menu">
       <Logo pequeno />
       <div className="topbar-acoes" ref={caixa}>
         {extra}
@@ -52,6 +53,7 @@ export function Topbar({ ativo, aoNavegar, aoSair, extra }) {
                 {d.rotulo}
               </button>
             ))}
+            <button role="menuitem" onClick={() => { setAberto(false); window.dispatchEvent(new Event(ABRIR_GUIA)) }}>Guia do sistema</button>
             <button role="menuitem" className="menu-sair" onClick={() => { setAberto(false); aoSair() }}>Sair da conta</button>
           </div>
         )}

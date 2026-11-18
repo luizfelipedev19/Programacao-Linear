@@ -27,11 +27,13 @@ export function Login({ aoEntrar, aoCadastrar, emailInicial = '' }) {
   }
 
   return (
-    <div className="pagina-login">
+    <main className="pagina-login" id="principal" tabIndex={-1}>
       <div className="app-card login">
         <div className="login-hero"><Hero /></div>
         <form className="login-body" onSubmit={enviar} noValidate>
+          <h1 className="so-leitor">Entrar no SuínoNutri</h1>
           <Logo subtitulo />
+          <p className="ajuda-login">Entre com o e-mail e a senha que você cadastrou. É a primeira vez? Toque em “Cadastre-se”, no fim da tela.</p>
 
           <div className="campo">
             <label htmlFor="email">E-mail</label>
@@ -70,6 +72,6 @@ export function Login({ aoEntrar, aoCadastrar, emailInicial = '' }) {
           </div>
         </form>
       </div>
-    </div>
+    </main>
   )
 }

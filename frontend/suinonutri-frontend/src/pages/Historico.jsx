@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import { Shell } from '../components/Shell'
 import { useAvisos } from '../components/Avisos'
 import { buscarHistorico, excluirProblema } from '../services/api'
-import { brl, pct } from '../services/formatos'
+import { Ajuda } from '../components/Ajuda'
+import { brl, pct, rotuloStatus } from '../services/formatos'
 
-const classe = { Concluída: 'concluida', 'Em análise': 'analise', 'Sem solução': 'sem-solucao' }
 
 export function Historico({ aoSair, aoNavegar, aoAbrir }) {
   const avisos = useAvisos()
@@ -16,10 +16,10 @@ export function Historico({ aoSair, aoNavegar, aoAbrir }) {
   useEffect(() => { carregar() }, [])
 
   async function excluir(f) {
-    if (!window.confirm(`Excluir a formulação ${f.codigo} (${f.formula})? Essa ação não pode ser desfeita.`)) return
+    if (!window.confirm(`Excluir a ração ${f.codigo} (${f.formula})? Isso não pode ser desfeito.`)) return
     try {
       await excluirProblema(f.id)
-      avisos.sucesso('Formulação excluída.')
+      avisos.sucesso('Ração excluída.')
       await carregar()
     } catch (err) {
       avisos.erro(err.message)
@@ -34,19 +34,26 @@ export function Historico({ aoSair, aoNavegar, aoAbrir }) {
     <Shell ativo="historico" aoNavegar={aoNavegar} aoSair={aoSair}>
       <div className="dash-cabecalho">
         <div>
-          <h1>Histórico</h1>
-          <p className="sub">Todas as formulações já calculadas. Clique em uma linha para ver a receita.</p>
+          <h1>Histórico de otimizações</h1>
+          <p className="sub">Todas as rações que você já calculou. Toque em uma linha para ver a receita.</p>
         </div>
         <div className="cab-acoes-sempre">
           <button className="btn-topo" onClick={() => aoNavegar('nova')}><span className="mais">+</span> Nova Otimização</button>
         </div>
       </div>
 
-      <section className="card-branco">
+      <Ajuda passos={[
+        'Aqui ficam todas as rações que você já calculou, da mais nova para a mais antiga.',
+        'Para achar uma ração, digite o nome na busca ou escolha uma situação (por exemplo, "Sem solução").',
+        'Toque em uma linha para ver a receita completa.',
+        'O botão "Excluir" apaga a ração da lista. Isso não pode ser desfeito.',
+      ]} dica={'"Sem solução" quer dizer que não existe ração que cumpra todas as exigências com os ingredientes escolhidos. Tente marcar mais ingredientes ou folgar os limites.'} />
+
+      <section className="card-branco" data-guia="hist-lista">
         <div className="filtros">
           <input className="texto busca" placeholder="Buscar por nome ou código…" value={busca} onChange={(e) => setBusca(e.target.value)} />
-          <select className="texto" value={filtro} onChange={(e) => setFiltro(e.target.value)} aria-label="Filtrar por status">
-            {['Todos', 'Concluída', 'Em análise', 'Sem solução'].map((o) => <option key={o}>{o}</option>)}
+          <select className="texto" value={filtro} onChange={(e) => setFiltro(e.target.value)} aria-label="Filtrar por situação">
+            {['Todos', 'Concluída', 'Em análise', 'Sem solução'].map((o) => <option key={o} value={o}>{o === 'Concluída' ? 'Deu certo' : o}</option>)}
           </select>
         </div>
 
@@ -55,7 +62,7 @@ export function Historico({ aoSair, aoNavegar, aoAbrir }) {
           <div className="tabela-wrap">
             <table>
               <thead>
-                <tr><th>Data</th><th>Código</th><th style={{ textAlign: 'left' }}>Fórmula</th><th>Custo/kg</th><th>Economia</th><th>Status</th><th></th></tr>
+                <tr><th>Data</th><th>Nº</th><th style={{ textAlign: 'left' }}>Nome da ração</th><th>Custo por kg</th><th>Economia</th><th>Situação</th><th><span className="so-leitor">Ações</span></th></tr>
               </thead>
               <tbody>
                 {itens.map((f) => (
@@ -65,7 +72,7 @@ export function Historico({ aoSair, aoNavegar, aoAbrir }) {
                     <td style={{ textAlign: 'left' }}>{f.formula}</td>
                     <td>{f.custoKg != null ? brl(f.custoKg) : '–'}</td>
                     <td>{f.economia != null ? pct(f.economia) : '–'}</td>
-                    <td><span className={`status ${classe[f.status]}`}>{f.status}</span></td>
+                    <td><span className={`status ${(rotuloStatus[f.status] ?? rotuloStatus['Em análise']).classe}`}>{(rotuloStatus[f.status] ?? rotuloStatus['Em análise']).texto}</span></td>
                     <td className="acoes">
                       <button className="btn-mini perigo" onClick={(e) => { e.stopPropagation(); excluir(f) }}>Excluir</button>
                     </td>
@@ -73,7 +80,7 @@ export function Historico({ aoSair, aoNavegar, aoAbrir }) {
                 ))}
               </tbody>
             </table>
-            {itens.length === 0 && <div className="vazio">{dados.itens.length === 0 ? 'Nenhuma formulação ainda.' : 'Nenhuma formulação encontrada.'}</div>}
+            {itens.length === 0 && <div className="vazio">{dados.itens.length === 0 ? 'Você ainda não calculou nenhuma ração.' : 'Nenhuma ração encontrada com esse filtro.'}</div>}
           </div>
         )}
         {dados && dados.total > dados.itens.length && (
